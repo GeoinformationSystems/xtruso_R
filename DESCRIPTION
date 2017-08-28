@@ -13,4 +13,5 @@ Imports:
   rgdal,
   httr
 Suggests:
+  foreach,
   doSNOW

@@ -10,7 +10,7 @@
 #' @param timestamp used, if path is not set; must be of type POSIXct or keyword "latest", which will return the latest available timestamp
 #' @return list($timestamp = timestamp of the image, $raster = RADOLAN SF raster object)
 #' @export
-raster_zonalOverlap <- function(raster, polygons) {
+ZonalOverlap <- function(raster, polygons) {
 
   if(class(polygons) != "SpatialPolygonsDataFrame")
     stop("function requires polygons instanceof 'SpatialPolygonsDataFrame'")

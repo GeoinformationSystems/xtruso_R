@@ -6,7 +6,7 @@
 #' @param column column name with function to be applied
 #' @return mapping table with attached results ($value)
 #' @export
-raster_evalRasterFun <- function(raster, mapping, column) {
+EvalRasterFun <- function(raster, mapping, column) {
 
   #execute function for each feature and append it as "value"
   mapping["value"] <- apply(mapping, 1, function(row){

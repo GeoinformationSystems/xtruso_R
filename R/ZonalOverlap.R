@@ -1,16 +1,24 @@
 #' Calculate Zonal Overlap for raster on input polygons
 #'
 #' This function calculates the zonal overlap for given raster cells for each input polygon.
-#' It adds an attribute "raster_fun" to the polygons, which can be used to calculate the weigted average
+#' It adds an attribute to the polygons, which can be used to calculate the weigted average
 #' of a raster within the respective polygon. However, to work properly, each raster that is later used
 #' to execute the function must follow the structure of the raster input of this function.
 #' The character string "raster_fun" has the following structure: "raster[%cellID%] * %cellWeight% + ..."
 #'
-#' @param path path to the RADOLAN SF binary input file, is set, the timestamp is ignored
-#' @param timestamp used, if path is not set; must be of type POSIXct or keyword "latest", which will return the latest available timestamp
-#' @return list($timestamp = timestamp of the image, $raster = RADOLAN SF raster object)
+#' @param raster raster dataset
+#' @param polygons polygons overlayed on input raster
+#' @param fun.column column in polygons@data, where overlap function is stored
+#' @param raster.name name of the raster within the function string
+#' @return polygons with added column for raster average computation
 #' @export
-ZonalOverlap <- function(raster, polygons) {
+ZonalOverlap <- function(raster, polygons, fun.colunm = "raster.avg", raster.name = "raster") {
+
+  if(missing(raster))
+    stop("Need to specify input raster.")
+
+  if(missing(polygons))
+    stop("Need to specify input polygons.")
 
   if(class(polygons) != "SpatialPolygonsDataFrame")
     stop("function requires polygons instanceof 'SpatialPolygonsDataFrame'")
@@ -23,11 +31,11 @@ ZonalOverlap <- function(raster, polygons) {
     doSNOW::registerDoSNOW(cl)
 
     #calculate raster overlap
-    polygons@data["raster.fun"] <- foreach::foreach(i=1:nrow(polygons), .combine=rbind, .export=("raster")) %dopar% {
+    polygons@data[fun.colunm] <- foreach::foreach(i=1:nrow(polygons), .combine=rbind, .export=("raster")) %dopar% {
       #get ovelap weight for each overlapping cell
       z <- raster::extract(raster, polygons[i,], small=T, weights=T, cellnumbers=T, normalizeWeights=T)
       #append cell information to dataframe
-      return(paste("raster[", paste(z[[1]][,"cell"],z[[1]][,"weight"], sep ="] * ", collapse=" + raster["), sep=""))
+      return(ZonalOverlap.avg(raster.name, z[[1]][,"cell"], z[[1]][,"weight"]))
     }
 
     #stop cluster
@@ -41,7 +49,7 @@ ZonalOverlap <- function(raster, polygons) {
       #get ovelap weight for each overlapping cell
       z <- raster::extract(raster, polygons[i,], small=T, weights=T, cellnumbers=T, normalizeWeights=T)
       #append cell information to dataframe
-      polygons[i, "raster.fun"] <- (paste("raster[", paste(z[[1]][,"cell"],z[[1]][,"weight"], sep ="] * ", collapse=" + raster["), sep=""))
+      polygons[i, fun.colunm] <- ZonalOverlap.avg(raster.name, z[[1]][,"cell"], z[[1]][,"weight"])
     }
 
   }
@@ -49,4 +57,16 @@ ZonalOverlap <- function(raster, polygons) {
   #return polygons with added "raster_fun" attribute
   return(polygons)
 
+}
+
+
+#' Get function to calculate the average of raster values within a polygon
+#'
+#' @param raster.name name of the raster within the function string
+#' @param cell array of cell ids
+#' @param weight array of cell weights corresponding to input cells
+#' @return function string for calculating the average based on input cells and weights
+#' @export
+ZonalOverlap.avg <- function(raster.name, cell, weight) {
+  return(paste(raster.name,"[", paste(cell,"] * ",weight, sep ="", collapse=paste(" + ",raster.name,"[", sep="")), sep=""))
 }

@@ -1,17 +1,22 @@
-#' Read RADOLAN SF dataset
+#' Read RADOLAN binary image
 #'
-#' This function reads a RADOLAN SF (24h avg in mm/h) binary raster as provided by the DWD
+#' This function reads a RADOLAN binary image as provided by the DWD
 #'
-#' @param path path to the RADOLAN SF binary input file, is set, the timestamp is ignored
-#' @param timestamp used, if path is not set; must be of type POSIXct or keyword "latest", which will return the latest available timestamp
-#' @return list($timestamp = timestamp of the image, $raster = RADOLAN SF raster object)
+#' @param url.root root path, where RADOLAN images are stored
+#' @param radolan.type RADOLAN image type
+#' @param timestamp requested timestamp for the RADOLAN image
+#' @param previous if a timestamp is not available, check previous timestamps according to the respective RADOLAN interval
+#' @param previous.break number of previous timestamps to be checked
+#' @param rm.flagged remove flagged pixels from RADOLAN image
+#' @return list($timestamp = timestamp of the image, $raster = RADOLAN raster object)
 #' @export
 ReadRadolanFromUrl <- function(url.root,
                                radolan.type,
                                timestamp = "latest",
                                previous = FALSE,
                                previous.break = 5,
-                               rm.flagged = TRUE) {
+                               rm.flagged = TRUE,
+                               fx.prediction = 120) {
 
   if(missing(url.root))
     stop("Need to specify path to RADOLAN root Url.")
@@ -22,6 +27,9 @@ ReadRadolanFromUrl <- function(url.root,
   if(!(radolan.type %in% names(radolan.configuration)))
     stop(paste("RADOLAN type", type, "is not supported.", sep=" "))
 
+  if(radolan.type == "FX" && !(fx.prediction %in% seq(0,120,5)))
+    stop("RADOLAN FX prediction must be within seq(from=0, to=120, by=5).")
+
   #get RADOLAN configuration
   configuration <- radolan.configuration[[radolan.type]]
 
@@ -30,7 +38,7 @@ ReadRadolanFromUrl <- function(url.root,
     timestamp <- eval(parse(text = configuration$time.latest))
 
   #read file
-  radolan.tuple <- ReadRadolanFromUrl.getTuple(url.root, timestamp, configuration, previous, previous.break, rm.flagged)
+  radolan.tuple <- ReadRadolanFromUrl.getTuple(url.root, timestamp, configuration, previous, previous.break, rm.flagged, fx.prediction)
 
   #return timestamp and raster
   return(radolan.tuple)
@@ -38,8 +46,24 @@ ReadRadolanFromUrl <- function(url.root,
 }
 
 
-#read RADOLAN raster and return final timestamp and raster
-ReadRadolanFromUrl.getTuple <- function(url.root, timestamp, configuration, previous, previous.break, rm.flagged) {
+#' Read RADOLAN binary image
+#'
+#' This function reads a RADOLAN binary image based on a specified RADOLAN configuration
+#'
+#' @param url.root root path, where RADOLAN images are stored
+#' @param timestamp requested timestamp for the RADOLAN image
+#' @param configuration RADOLAN configuration
+#' @param previous if a timestamp is not available, check previous timestamps according to the respective RADOLAN interval
+#' @param previous.break number of previous timestamps to be checked
+#' @param rm.flagged remove flagged pixels from RADOLAN image
+#' @return list($timestamp = timestamp of the image, $raster = RADOLAN raster object)
+ReadRadolanFromUrl.getTuple <- function(url.root,
+                                        timestamp,
+                                        configuration,
+                                        previous,
+                                        previous.break,
+                                        rm.flagged,
+                                        fx.prediction) {
 
   radolan.raster <- NULL
   previous.step = 0
@@ -47,7 +71,7 @@ ReadRadolanFromUrl.getTuple <- function(url.root, timestamp, configuration, prev
   while(is.null(radolan.raster) && previous.step <= previous.break){
 
     #get URL for RADOLAN raster
-    radolan.url <- ReadRadolanFromUrl.getURL(url.root, timestamp, configuration)
+    radolan.url <- ReadRadolanFromUrl.getURL(url.root, timestamp, configuration, fx.prediction)
 
     #try to read RADOLAN raster from Url
     radolan.raster <- ReadRadolanFromUrl.getRaster(radolan.url, configuration$type, rm.flagged)
@@ -63,11 +87,25 @@ ReadRadolanFromUrl.getTuple <- function(url.root, timestamp, configuration, prev
 }
 
 
-#get Url of RADOLAN file based on timestamp
-ReadRadolanFromUrl.getURL <- function(url.root, timestamp, configuration){
+#' Get Url of RADOLAN file based on a specified timestamp
+#'
+#' This function determines a proper URL to access a RADOLAN image with a specified timestamp
+#'
+#' @param url.root root path, where RADOLAN images are stored
+#' @param timestamp requested timestamp for the RADOLAN image
+#' @param configuration RADOLAN configuration
+#' @return proper RADOLAN URL
+ReadRadolanFromUrl.getURL <- function(url.root, timestamp, configuration, fx.prediction){
 
   #get file name
   file.name <- gsub("%%time%%", format(timestamp, configuration$time.format), configuration$file.pattern)
+
+  #set prediction for FX product
+  if(configuration$type == "FX"){
+    if(fx.prediction < 100)
+      fx.prediction <- paste("0", fx.prediction, sep="")
+    file.name <- gsub("%%prediction%%", fx.prediction, file.name)
+  }
 
   #return url
   return(paste(url.root, file.name, sep="/"))
@@ -75,7 +113,14 @@ ReadRadolanFromUrl.getURL <- function(url.root, timestamp, configuration){
 }
 
 
-# Read RADOLAN raster from url
+#' Read RADOLAN image from URL
+#'
+#' This function reads a RADOLNa binary file from URL
+#'
+#' @param radolan.url URL of RADOLAN image
+#' @param radolan.type RADOLAN image type
+#' @param rm.flagged remove flagged pixels from RADOLAN image
+#' @return RADOLAN raster
 ReadRadolanFromUrl.getRaster <- function(radolan.url, radolan.type, rm.flagged) {
 
   #check if url exists

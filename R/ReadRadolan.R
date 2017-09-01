@@ -135,11 +135,11 @@ ReadRadolan.parseBinary <- function(radolan.path,
       radolan.path <- tmp.path
       download <- TRUE
     }, error = function(e){
-      return(NULL)
+      #do nothing
     })
   }
 
-  else if(!file.exists(radolan.path))
+  if(!file.exists(radolan.path))
     return(NULL)
 
   #read file
@@ -156,7 +156,7 @@ ReadRadolan.parseBinary <- function(radolan.path,
 
 #' Parse RADOLAN binary file
 #'
-#' @param file.path path to the RADOLAN binary input file
+#' @param radolan.path path to the RADOLAN binary input file
 #' @param radolan.type RADOLAN type according to DWD classification (see radolan.configuration for supported types)
 #' @param rm.flagged remove flagged pixels from RADOLAN image
 #' @return RADOLAN raster object

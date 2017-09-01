@@ -18,13 +18,13 @@ ReadRadolan <- function(radolan.root,
                         fx.prediction = 120) {
 
   if(missing(radolan.root))
-    stop("Need to specify path to RADOLAN file root folder or URL.")
+    stop("Need to specify path to RADOLAN root folder or URL.")
 
   if(missing(radolan.type))
     stop("Need to specify type of RADOLAN product.")
 
   if(!(radolan.type %in% names(radolan.configuration)))
-    stop(paste("RADOLAN type", type, "is not supported.", sep=" "))
+    stop(paste("RADOLAN type", radolan.type, "is not supported.", sep=" "))
 
   if(radolan.type == "FX" && !(fx.prediction %in% seq(0,120,5)))
     stop("RADOLAN FX prediction must be within seq(from=0, to=120, by=5).")
@@ -53,7 +53,7 @@ ReadRadolan <- function(radolan.root,
 #' @param previous if a timestamp is not available, check previous timestamps according to the respective RADOLAN interval
 #' @param previous.break number of previous timestamps to be checked
 #' @param rm.flagged remove flagged pixels from RADOLAN image
-#' @return list($timestamp = timestamp of the image, $raster = RADOLAN raster object)
+#' @return RADOLAN raster object
 ReadRadolan.getRaster <- function(radolan.root,
                                   timestamp,
                                   configuration,
@@ -93,7 +93,7 @@ ReadRadolan.getRaster <- function(radolan.root,
 #' @param radolan.root root path, where RADOLAN images are stored
 #' @param timestamp requested timestamp for the RADOLAN image
 #' @param configuration RADOLAN configuration
-#' @return proper RADOLAN URL
+#' @return proper RADOLAN path
 ReadRadolan.getPath <- function(radolan.root,
                                 timestamp,
                                 configuration,
@@ -142,7 +142,7 @@ ReadRadolan.parseBinary <- function(radolan.path,
   else if(!file.exists(radolan.path))
     return(NULL)
 
-  #read sf file
+  #read file
   radolan.raster <- ReadRadolanBinary(radolan.path, radolan.type, rm.flagged)
 
   #delete downloaded file

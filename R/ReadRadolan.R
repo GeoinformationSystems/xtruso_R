@@ -1,15 +1,13 @@
-#' Read RADOLAN binary image accordimg to DWD file pattern
-#'
-#' This function reads a RADOLAN binary image as provided by the DWD
+#' Read RADOLAN binary file from specified folder accordimg to the official DWD file pattern
 #'
 #' @param radolan.root root path, where RADOLAN images are stored (folder or URL)
 #' @param radolan.type RADOLAN image type
 #' @param timestamp requested timestamp for the RADOLAN image
-#' @param previous if a timestamp is not available, check previous timestamps according to the respective RADOLAN interval
-#' @param previous.break number of previous timestamps to be checked
-#' @param rm.flagged remove flagged pixels from RADOLAN image
+#' @param previous if a timestamp is not available, check previous timestamps according to the specified RADOLAN interval
+#' @param previous.break number of previous timestamps to be checked, if previous = TRUE
+#' @param rm.flagged remove flagged pixels from RADOLAN raster (set to NA)
 #' @param fx.prediction prediction interval for RADOLAN FX product (0:120, step=5)
-#' @return list($timestamp = timestamp of the image, $raster = RADOLAN raster object)
+#' @return requested RADOLAN raster
 #' @export
 ReadRadolan <- function(radolan.root,
                         radolan.type,
@@ -47,9 +45,7 @@ ReadRadolan <- function(radolan.root,
 }
 
 
-#' Read RADOLAN binary image
-#'
-#' This function reads a RADOLAN binary image based on a specified RADOLAN configuration
+#' Get RADOLAN raster that matches the defined timestamp
 #'
 #' @param radolan.root root path, where RADOLAN images are stored
 #' @param timestamp requested timestamp for the RADOLAN image
@@ -92,9 +88,7 @@ ReadRadolan.getRaster <- function(radolan.root,
 }
 
 
-#' Get path of RADOLAN file based on a specified timestamp
-#'
-#' This function determines a proper path to access a RADOLAN image based on the specified specified timestamp
+#' Get proper path to RADOLAN file based on the type and specified timestamp
 #'
 #' @param radolan.root root path, where RADOLAN images are stored
 #' @param timestamp requested timestamp for the RADOLAN image
@@ -121,9 +115,7 @@ ReadRadolan.getPath <- function(radolan.root,
 }
 
 
-#' Try to read RADOLAN raster from path
-#'
-#' This function tries to read a RADOLAN raster from a specified path, returns NULL upon failure
+#' Try to read RADOLAN raster from path, returns NULL if file does not exist
 #'
 #' @param radolan.path path to RADOLAN image
 #' @param radolan.type RADOLAN type
@@ -162,9 +154,7 @@ ReadRadolan.parseBinary <- function(radolan.path,
 
 }
 
-#' Read RADOLAN binary raster
-#'
-#' This function reads a RADOLAN binary file as provided by the DWD
+#' Parse RADOLAN binary file
 #'
 #' @param file.path path to the RADOLAN binary input file
 #' @param radolan.type RADOLAN type according to DWD classification (see radolan.configuration for supported types)

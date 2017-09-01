@@ -1,11 +1,16 @@
+library(raster)
+
 #create configuration with RADOLAN
 radolan.configuration <- list()
+
+radolan.configuration.extent900 <- raster::extent(-523.4622, 376.5378, -4658.645, -3758.645)
+radolan.configuration.crs <- CRS("+proj=stere +lat_0=90 +lat_ts=90 +lon_0=10 +k=0.93301270189 +x_0=0 +y_0=0 +a=6370040 +b=6370040 +to_meter=1000 +no_defs")
 
 #append configurations
 radolan.configuration[["SF"]] <- list("type" = "SF",
                                       "ncol" = 900,
                                       "nrow" = 900,
-                                      "extent" = raster::extent(-523.4622, 376.5378, -4658.645, -3758.645),
+                                      "extent" = radolan.configuration.extent900,
                                       "proj" = proj.radolan,
                                       "bits" = 2,
                                       "convert.to.dBZ" = FALSE,
@@ -24,7 +29,7 @@ radolan.configuration[["SF"]] <- list("type" = "SF",
 radolan.configuration[["RW"]] <- list("type" = "RW",
                                       "ncol" = 900,
                                       "nrow" = 900,
-                                      "extent" = raster::extent(-523.4622, 376.5378, -4658.645, -3758.645),
+                                      "extent" = radolan.configuration.extent900,
                                       "proj" = proj.radolan,
                                       "bits" = 2,
                                       "convert.to.dBZ" = FALSE,
@@ -43,7 +48,7 @@ radolan.configuration[["RW"]] <- list("type" = "RW",
 radolan.configuration[["RX"]] <- list("type" = "RX",
                                       "ncol" = 900,
                                       "nrow" = 900,
-                                      "extent" = raster::extent(-523.4622, 376.5378, -4658.645, -3758.645),
+                                      "extent" = radolan.configuration.extent900,
                                       "proj" = proj.radolan,
                                       "bits" = 1,
                                       "convert.to.dBZ" = TRUE,
@@ -60,7 +65,7 @@ radolan.configuration[["RX"]] <- list("type" = "RX",
 radolan.configuration[["FX"]] <- list("type" = "FX",
                                       "ncol" = 900,
                                       "nrow" = 900,
-                                      "extent" = raster::extent(-523.4622, 376.5378, -4658.645, -3758.645),
+                                      "extent" = radolan.configuration.extent900,
                                       "proj" = proj.radolan,
                                       "bits" = 2,
                                       "convert.to.dBZ" = TRUE,

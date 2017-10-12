@@ -7,7 +7,7 @@
 #' @param timestamp requested timestamp for the COSMO DE model output
 #' @param previous if a timestamp is not available, check previous timestamps according to the interval of COSMO DE model runs
 #' @param previous.break number of previous timestamps to be checked, if previous = TRUE
-#' @param prediction COSMO DE prediction in hours (0 - 27)
+#' @param prediction single or vector of COSMO DE prediction intervals, in hours (0 - 45)
 #' @return COSMO DE raster
 #' @export
 ReadCosmoDE <- function(cosmo.root,
@@ -26,8 +26,8 @@ ReadCosmoDE <- function(cosmo.root,
   if(!(cosmo.parameter %in% names(cosmo.configuration)))
     stop(paste("COSMO DE parameter", cosmo.parameter, "is not supported.", sep=" "))
 
-  if(!(prediction %in% 0:27))
-    stop("COSMO DE prediction must be within interval c(0:27).")
+  if(!all(prediction %in% 0:45))
+    stop("COSMO DE prediction must be within interval 0:45.")
 
   #get COSMO DE configuration
   configuration <- cosmo.configuration[[cosmo.parameter]]
@@ -36,13 +36,17 @@ ReadCosmoDE <- function(cosmo.root,
   if(timestamp == "latest")
     timestamp <- eval(parse(text = configuration$time.latest))
 
-  #read file
+  if(timestamp$hour != 3 && any(prediction %in% 28:45))
+    stop("COSMO DE prediction for hour != 3 must be within interval 0:27.")
+
+  #get raster / raster stack
   cosmo.raster <- ReadCosmoDE.getRaster(cosmo.root, timestamp, configuration, previous, previous.break, prediction)
 
   #return
   return(cosmo.raster)
 
 }
+
 
 #' Get COSMO DE raster that matches the defined timestamp
 #'
@@ -52,13 +56,13 @@ ReadCosmoDE <- function(cosmo.root,
 #' @param previous if a timestamp is not available, check previous timestamps according to the respective COSMO DE interval
 #' @param previous.break number of previous timestamps to be checked
 #' @param prediction COSMO DE prediction in hours (0 - 27)
-#' @return list($timestamp = timestamp of the image, $raster = RADOLAN raster object)
+#' @return RADOLAN raster object
 ReadCosmoDE.getRaster <- function(cosmo.root,
-                                 timestamp,
-                                 configuration,
-                                 previous,
-                                 previous.break,
-                                 prediction) {
+                                  timestamp,
+                                  configuration,
+                                  previous,
+                                  previous.break,
+                                  prediction) {
 
   cosmo.raster <- NULL
   previous.step = 0
@@ -66,12 +70,12 @@ ReadCosmoDE.getRaster <- function(cosmo.root,
   while(is.null(cosmo.raster) && previous.step <= previous.break){
 
     #get path for COSMO DE raster
-    cosmo.path <- ReadCosmoDE.getPath(cosmo.root, timestamp, configuration, prediction)
+    cosmo.path <- ReadCosmoDE.getPath(cosmo.root, timestamp, configuration, prediction[1])
 
     #try to read COSMO DE raster from root
     cosmo.raster <- ReadCosmoDEGrib(cosmo.path)
     if(is.null(cosmo.raster)){
-      timestamp <- timestamp - configuration$time.interval
+      timestamp <- as.POSIXlt(timestamp - configuration$time.interval)
       previous.step <- previous.step + 1
     }
   }
@@ -79,9 +83,28 @@ ReadCosmoDE.getRaster <- function(cosmo.root,
   if(is.null(cosmo.raster))
     stop("Could not read a requested COSMO DE raster.")
 
-  #return raster
-  cosmo.raster@title <- paste(configuration$parameter, timestamp, prediction, sep=" - ")
-  return(cosmo.raster)
+  #return single raster, if length(prediction) == 1
+  if(length(prediction) == 1){
+    cosmo.raster@title <- paste(configuration$parameter, timestamp, prediction, sep=" - ")
+    return(cosmo.raster)
+  }
+
+  #init stack
+  cosmo.raster@title <- paste(configuration$parameter, timestamp, prediction[1], sep=" - ")
+  cosmo.stack <- stack(cosmo.raster)
+
+  #read full stack
+  for(i in prediction[prediction != prediction[1]]){
+    cosmo.path <- ReadCosmoDE.getPath(cosmo.root, timestamp, configuration, i)
+    cosmo.raster <- ReadCosmoDEGrib(cosmo.path)
+    if(!(is.null(cosmo.raster))){
+      cosmo.raster@title <- paste(configuration$parameter, timestamp, i, sep=" - ")
+      cosmo.stack <- addLayer(cosmo.stack, cosmo.raster)
+    }
+  }
+
+  #return stack
+  return(cosmo.stack)
 
 }
 
@@ -126,7 +149,7 @@ ReadCosmoDEGrib <- function(cosmo.path){
   if(any(startsWith(cosmo.path, c("http://", "https://", "ftp://")))){
     tryCatch({
       tmp.path <- paste(tempdir(), basename(cosmo.path), sep="/")
-      download.file(cosmo.path, tmp.path, mode="wb")
+      utils::download.file(cosmo.path, tmp.path, mode="wb")
       cosmo.path <- tmp.path
       download <- TRUE
     }, error = function(e){
@@ -138,24 +161,28 @@ ReadCosmoDEGrib <- function(cosmo.path){
     return(NULL)
 
   #unzip
-  if(endsWith(cosmo.path, ".bz2")) {
-    if (requireNamespace("R.utils", quietly=TRUE)){
-      bunzip2(cosmo.path, overwrite=TRUE)
-      cosmo.path <- gsub(".bz2", "", cosmo.path)
+  if(any(base::endsWith(cosmo.path, c(".bz2", ".gz")))) {
+    if (requireNamespace("R.utils", quietly=TRUE)) {
+      if(isGzipped(cosmo.path))
+        R.utils::gunzip(cosmo.path, overwrite=TRUE)
+      if(isBzipped(cosmo.path))
+        R.utils::bunzip2(cosmo.path, overwrite=TRUE)
+      cosmo.path <- gsub(".bz2|.gz", "", cosmo.path)
     }
     else
-      stop("Need to install R.utils in order to read from .bz2.")
+      stop("Need to install R.utils to decompress .bz2 or .gz.")
   }
 
   #read file
   cosmo.raster <- raster::raster(cosmo.path)
-  cosmo.raster <- raster::readAll(cosmo.raster)
 
-  #delete downloaded file
-  if(download)
+  if(download){
+    #read to memory
+    cosmo.raster <- raster::readAll(cosmo.raster)
+    #delete file
     unlink(cosmo.path)
+  }
 
-  #return
   return(cosmo.raster)
 
 }

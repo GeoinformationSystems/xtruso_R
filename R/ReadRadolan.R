@@ -6,7 +6,7 @@
 #' @param previous if a timestamp is not available, check previous timestamps according to the specified RADOLAN interval
 #' @param previous.break number of previous timestamps to be checked, if previous = TRUE
 #' @param rm.flagged remove flagged pixels from RADOLAN raster (set to NA)
-#' @param fx.prediction prediction interval for RADOLAN FX product (0:120, step=5)
+#' @param fx.prediction prediction intervals for RADOLAN FX product (0:120, step=5)
 #' @return requested RADOLAN raster
 #' @export
 ReadRadolan <- function(radolan.root,
@@ -26,7 +26,7 @@ ReadRadolan <- function(radolan.root,
   if(!(radolan.type %in% names(radolan.configuration)))
     stop(paste("RADOLAN type", radolan.type, "is not supported.", sep=" "))
 
-  if(radolan.type == "FX" && !(fx.prediction %in% seq(0,120,5)))
+  if(radolan.type == "FX" && !all(fx.prediction %in% seq(0,120,5)))
     stop("RADOLAN FX prediction must be within seq(from=0, to=120, by=5).")
 
   #get RADOLAN configuration
@@ -53,6 +53,7 @@ ReadRadolan <- function(radolan.root,
 #' @param previous if a timestamp is not available, check previous timestamps according to the respective RADOLAN interval
 #' @param previous.break number of previous timestamps to be checked
 #' @param rm.flagged remove flagged pixels from RADOLAN image
+#' @param fx.prediction prediction intervals for RADOLAN FX product (0:120, step=5)
 #' @return RADOLAN raster object
 ReadRadolan.getRaster <- function(radolan.root,
                                   timestamp,
@@ -68,10 +69,10 @@ ReadRadolan.getRaster <- function(radolan.root,
   while(is.null(radolan.raster) && previous.step <= previous.break){
 
     #get path for RADOLAN raster
-    radolan.path <- ReadRadolan.getPath(radolan.root, timestamp, configuration, fx.prediction)
+    radolan.path <- ReadRadolan.getPath(radolan.root, timestamp, configuration, fx.prediction[1])
 
     #try to read RADOLAN raster from root
-    radolan.raster <- ReadRadolan.parseBinary(radolan.path, configuration$type, rm.flagged)
+    radolan.raster <- ReadRadolanBinary(radolan.path, configuration$type, rm.flagged)
     if(is.null(radolan.raster)){
       timestamp <- timestamp - configuration$time.interval
       previous.step <- previous.step + 1
@@ -79,11 +80,37 @@ ReadRadolan.getRaster <- function(radolan.root,
   }
 
   if(is.null(radolan.raster))
-    stop("Could not read a requested RADOLAN raster.")
+    stop("Could not read requested RADOLAN raster.")
 
-  #return raster
+  #set title
   radolan.raster@title <- as.character(timestamp)
-  return(radolan.raster)
+
+  #return nonFX
+  if(configuration$type != "FX"){
+    return(radolan.raster)
+  }
+
+  #set FX title
+  radolan.raster@title <- paste(radolan.raster@title, fx.prediction[1], sep=" - ")
+
+  if(length(fx.prediction) == 1)
+    return(radolan.raster)
+
+  #init stack
+  radolan.stack <- stack(radolan.raster)
+
+  #read full stack
+  for(i in fx.prediction[fx.prediction != fx.prediction[1]]){
+    radolan.path <- ReadRadolan.getPath(radolan.root, timestamp, configuration, i)
+    radolan.raster <- ReadRadolanBinary(radolan.path, configuration$type, rm.flagged)
+    if(!(is.null(radolan.raster))){
+      radolan.raster@title <- paste(as.character(timestamp), i, sep=" - ")
+      radolan.stack <- addLayer(radolan.stack, radolan.raster)
+    }
+  }
+
+  #return stack
+  return(radolan.stack)
 
 }
 
@@ -93,6 +120,7 @@ ReadRadolan.getRaster <- function(radolan.root,
 #' @param radolan.root root path, where RADOLAN images are stored
 #' @param timestamp requested timestamp for the RADOLAN image
 #' @param configuration RADOLAN configuration
+#' @param fx.prediction prediction intervals for RADOLAN FX product (0:120, step=5)
 #' @return proper RADOLAN path
 ReadRadolan.getPath <- function(radolan.root,
                                 timestamp,
@@ -104,8 +132,11 @@ ReadRadolan.getPath <- function(radolan.root,
 
   #set prediction for FX product
   if(configuration$type == "FX"){
-    if(fx.prediction < 100)
+    if(fx.prediction < 10) {
+      fx.prediction <- paste("00", fx.prediction, sep="")
+    } else if(fx.prediction < 100) {
       fx.prediction <- paste("0", fx.prediction, sep="")
+    }
     file.name <- gsub("%%prediction%%", fx.prediction, file.name)
   }
 
@@ -121,9 +152,10 @@ ReadRadolan.getPath <- function(radolan.root,
 #' @param radolan.type RADOLAN type
 #' @param rm.flagged remove flagged pixels from RADOLAN image
 #' @return RADOLAN raster
-ReadRadolan.parseBinary <- function(radolan.path,
-                                    radolan.type,
-                                    rm.flagged) {
+#' @export
+ReadRadolanBinary <- function(radolan.path,
+                              radolan.type,
+                              rm.flagged = TRUE) {
 
   download <- FALSE
 
@@ -131,7 +163,7 @@ ReadRadolan.parseBinary <- function(radolan.path,
   if(any(startsWith(radolan.path, c("http://", "https://", "ftp://")))){
     tryCatch({
       tmp.path <- paste(tempdir(), basename(radolan.path), sep="/")
-      download.file(radolan.path, tmp.path, mode="wb")
+      utils::download.file(radolan.path, tmp.path, mode="wb")
       radolan.path <- tmp.path
       download <- TRUE
     }, error = function(e){
@@ -142,8 +174,21 @@ ReadRadolan.parseBinary <- function(radolan.path,
   if(!file.exists(radolan.path))
     return(NULL)
 
+  #unzip
+  if(any(base::endsWith(radolan.path, c(".bz2", ".gz")))) {
+    if (requireNamespace("R.utils", quietly=TRUE)) {
+      if(isGzipped(radolan.path))
+        R.utils::gunzip(radolan.path, overwrite=TRUE)
+      if(isBzipped(radolan.path))
+        R.utils::bunzip2(radolan.path, overwrite=TRUE)
+      radolan.path <- gsub(".bz2|.gz", "", radolan.path)
+    }
+    else
+      stop("Need to install R.utils to decompress .bz2 or .gz.")
+  }
+
   #read file
-  radolan.raster <- ReadRadolanBinary(radolan.path, radolan.type, rm.flagged)
+  radolan.raster <- ReadRadolanBinary.read(radolan.path, radolan.type, rm.flagged)
 
   #delete downloaded file
   if(download)
@@ -155,15 +200,15 @@ ReadRadolan.parseBinary <- function(radolan.path,
 }
 
 #' Parse RADOLAN binary file
+#' adapted from http://moc.online.uni-marburg.de/doku.php?id=courses:bsc:project-thesis-geoei:lecture-notes:bdh:pt-ge-ln-bdh-01-9000
 #'
 #' @param radolan.path path to the RADOLAN binary input file
 #' @param radolan.type RADOLAN type according to DWD classification (see radolan.configuration for supported types)
 #' @param rm.flagged remove flagged pixels from RADOLAN image
 #' @return RADOLAN raster object
-#' @export
-ReadRadolanBinary <- function(radolan.path,
-                              radolan.type,
-                              rm.flagged = TRUE) {
+ReadRadolanBinary.read <- function(radolan.path,
+                                   radolan.type,
+                                   rm.flagged = TRUE) {
 
   if(missing(radolan.path))
     stop("Need to specify path to RADOLAN binary.")
@@ -196,11 +241,11 @@ ReadRadolanBinary <- function(radolan.path,
   radolan.raster <- raster::raster(t(matrix(radolan.data, ncol = configuration$ncol, nrow = configuration$nrow)))
 
   #flip raster direction
-  radolan.raster <- flip(radolan.raster, "y")
+  radolan.raster <- raster::flip(radolan.raster, "y")
 
   #set extent and projection
-  extent(radolan.raster) <- configuration$extent
-  projection(radolan.raster) <- configuration$proj
+  raster::extent(radolan.raster) <- configuration$extent
+  raster::projection(radolan.raster) <- configuration$proj
 
   #remove flagged values
   if(rm.flagged)
@@ -213,7 +258,7 @@ ReadRadolanBinary <- function(radolan.path,
   #convert RVP6 values to dBZ, remove negative dBZ
   if(configuration$convert.to.dBZ) {
     radolan.raster <- radolan.raster / 2 - 32.5
-    radolan.raster[radolan.raster < 0] <- NA
+    radolan.raster[radolan.raster < 0] <- 0
   }
 
   #return

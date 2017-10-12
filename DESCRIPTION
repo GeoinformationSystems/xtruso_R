@@ -1,14 +1,13 @@
 Package: xtruso
 Type: Package
-Title: Hydro-meteorological analysis for the EXTRUSO Project
+Title: EXTRUSO R package
+Description: Hydro-meteorological analysis for the EXTRUSO Project
 Version: 0.1.0
 Authors@R: person("Stefan", "Wiemann", email = "stefan.wiemann@tu-dresden.de", role = c("aut", "cre"))
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
 License: CC BY 4.0
 Encoding: UTF-8
 LazyData: true
-Imports:
+Depends:
   raster,
   rgdal,
   httr

@@ -1,3 +1,5 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^data-raw$
+^data-xtruso$
+^data-xtruso-raw$

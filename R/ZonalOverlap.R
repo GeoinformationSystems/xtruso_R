@@ -23,6 +23,10 @@ ZonalOverlap <- function(raster, polygons, fun.colunm = "raster.avg", raster.nam
   if(class(polygons) != "SpatialPolygonsDataFrame")
     stop("function requires polygons instanceof 'SpatialPolygonsDataFrame'")
 
+  #transfor polygons, if CRS do not match (do not transform raster to preserve raster cell values)
+  if(sp::proj4string(raster) != sp::proj4string(polygons))
+    polygons <- sp::spTransform(polygons, sp::proj4string(raster))
+
   #parallel execution with foreach
   if (requireNamespace("doSNOW", quietly=TRUE)) {
 

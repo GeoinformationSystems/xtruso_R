@@ -12,7 +12,11 @@
 #' @param raster.name name of the raster within the function string
 #' @return polygons with added column for raster average computation
 #' @export
-ZonalOverlap <- function(raster, polygons, fun.colunm = "raster.avg", raster.name = "raster") {
+ZonalOverlap <- function(raster,
+                         polygons,
+                         fun.colunm = "raster.avg",
+                         raster.name = "raster",
+                         parallel = TRUE) {
 
   if(missing(raster))
     stop("Need to specify input raster.")
@@ -28,7 +32,9 @@ ZonalOverlap <- function(raster, polygons, fun.colunm = "raster.avg", raster.nam
     polygons <- sp::spTransform(polygons, sp::proj4string(raster))
 
   #parallel execution with foreach
-  if (requireNamespace("doSNOW", quietly=TRUE)) {
+  if (parallel && "doSNOW" %in% installed.packages()[, "Package"]) {
+
+    require(doSNOW, quietly = TRUE)
 
     #init parallel environment
     cl <- snow::makeCluster(as.integer(Sys.getenv("NUMBER_OF_PROCESSORS")) - 1)

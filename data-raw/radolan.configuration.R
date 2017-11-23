@@ -16,7 +16,7 @@ radolan.configuration[["SF"]] <- list("type" = "SF",
                                       "bits" = 2,
                                       "convert.to.dBZ" = FALSE,
                                       "precision" = 0.1,
-                                      "max.value" = 409.5,
+                                      "max.value" = 4095,
                                       "time.latest" = "
                                           latest <- as.POSIXlt(Sys.time(), \"UTC\")
                                           latest <- strptime(paste(format(latest, \"%y%m%d%H\"), \"50\", sep=\"\"), \"%y%m%d%H%M\", \"UTC\")
@@ -35,7 +35,7 @@ radolan.configuration[["RW"]] <- list("type" = "RW",
                                       "bits" = 2,
                                       "convert.to.dBZ" = FALSE,
                                       "precision" = 0.1,
-                                      "max.value" = 409.5,
+                                      "max.value" = 4095,
                                       "time.latest" = "
                                           latest <- as.POSIXlt(Sys.time(), \"UTC\")
                                           latest <- strptime(paste(format(latest, \"%y%m%d%H\"), \"50\", sep=\"\"), \"%y%m%d%H%M\", \"UTC\")

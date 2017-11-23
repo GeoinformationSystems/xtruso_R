@@ -20,7 +20,9 @@ EvalRasterFun <- function(stack,
   })
 
   #parallel execution with foreach
-  if (parallel && requireNamespace("doSNOW", quietly=TRUE)) {
+  if (parallel && "doSNOW" %in% installed.packages()[, "Package"]) {
+
+    require(doSNOW, quietly = TRUE)
 
     #init parallel environment
     cl <- snow::makeCluster(as.integer(Sys.getenv("NUMBER_OF_PROCESSORS")) - 1)

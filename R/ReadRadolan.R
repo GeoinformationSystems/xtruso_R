@@ -247,13 +247,13 @@ ReadRadolanBinary.read <- function(radolan.path,
   raster::extent(radolan.raster) <- configuration$extent
   raster::projection(radolan.raster) <- configuration$proj
 
-  #remove flagged values
-  if(rm.flagged)
-    radolan.raster[radolan.raster > configuration$max.value] <- NA
-
   #convert values, if precision != 1
   if(configuration$precision != 1)
     radolan.raster <- radolan.raster * configuration$precision
+
+  #remove flagged values
+  if(rm.flagged)
+    radolan.raster[radolan.raster > configuration$max.value] <- NA
 
   #convert RVP6 values to dBZ, remove negative dBZ
   if(configuration$convert.to.dBZ) {

@@ -157,6 +157,18 @@ ReadRadolanBinary <- function(radolan.path,
                               radolan.type,
                               rm.flagged = TRUE) {
 
+  if(missing(radolan.path))
+    stop("Need to specify path to RADOLAN binary.")
+
+  if(missing(radolan.type))
+    stop("Need to specify type of RADOLAN product.")
+
+  if(!(radolan.type %in% names(radolan.configuration)))
+    stop(paste("RADOLAN type", type, "is not supported.", sep=" "))
+
+  #get RADOLAN configuration
+  configuration <- radolan.configuration[[radolan.type]]
+
   download <- FALSE
 
   #download
@@ -188,7 +200,10 @@ ReadRadolanBinary <- function(radolan.path,
   }
 
   #read file
-  radolan.raster <- ReadRadolanBinary.read(radolan.path, radolan.type, rm.flagged)
+  radolan.raster <- ReadRadolanBinary.read(radolan.path, configuration, rm.flagged)
+
+  #set timestamp as attribute
+  attr(radolan.raster, "timestamp") <- ReadRadolanBinary.getTimestamp(radolan.path, configuration)
 
   #delete downloaded file
   if(download)
@@ -196,6 +211,26 @@ ReadRadolanBinary <- function(radolan.path,
 
   #return
   return(radolan.raster)
+
+}
+
+
+#' get timestamp from RADOLAN path
+#'
+#' @param radolan.path path to the RADOLAN input file
+#' @param radolan.type RADOLAN type according to DWD classification (see radolan.configuration for supported types)
+#' @return RADOLAN timestamp
+ReadRadolanBinary.getTimestamp <- function(radolan.path, configuration) {
+
+  #get filename from path
+  file.name <- basename(radolan.path)
+
+  #extract timestamp string
+  timestamp.surroundings <- unlist(strsplit(configuration$file.pattern, "%%time%%"))
+  timestamp <- gsub(paste(timestamp.surroundings[1], timestamp.surroundings[2], sep="|"), "", file.name)
+
+  #get timestamp
+  return(strptime(timestamp, configuration$time.format, "UTC"))
 
 }
 
@@ -207,20 +242,14 @@ ReadRadolanBinary <- function(radolan.path,
 #' @param rm.flagged remove flagged pixels from RADOLAN image
 #' @return RADOLAN raster object
 ReadRadolanBinary.read <- function(radolan.path,
-                                   radolan.type,
+                                   configuration,
                                    rm.flagged = TRUE) {
 
   if(missing(radolan.path))
     stop("Need to specify path to RADOLAN binary.")
 
-  if(missing(radolan.type))
-    stop("Need to specify type of RADOLAN product.")
-
-  if(!(radolan.type %in% names(radolan.configuration)))
-    stop(paste("RADOLAN type", type, "is not supported.", sep=" "))
-
-  #get RADOLAN configuration
-  configuration <- radolan.configuration[[radolan.type]]
+  if(missing(configuration))
+    stop("Need to specify RADOLAN product configuration.")
 
   #define end of header position ("03")
   header.end <- regexpr("\003", readLines(radolan.path, 1, skipNul = TRUE, warn = FALSE))
@@ -247,13 +276,13 @@ ReadRadolanBinary.read <- function(radolan.path,
   raster::extent(radolan.raster) <- configuration$extent
   raster::projection(radolan.raster) <- configuration$proj
 
-  #convert values, if precision != 1
-  if(configuration$precision != 1)
-    radolan.raster <- radolan.raster * configuration$precision
-
   #remove flagged values
   if(rm.flagged)
     radolan.raster[radolan.raster > configuration$max.value] <- NA
+
+  #convert values, if precision != 1
+  if(configuration$precision != 1)
+    radolan.raster <- radolan.raster * configuration$precision
 
   #convert RVP6 values to dBZ, remove negative dBZ
   if(configuration$convert.to.dBZ) {

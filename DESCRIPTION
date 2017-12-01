@@ -9,8 +9,7 @@ Encoding: UTF-8
 LazyData: true
 Depends:
   raster,
-  rgdal,
-  httr
+  rgdal
 Suggests:
   foreach,
   doSNOW,

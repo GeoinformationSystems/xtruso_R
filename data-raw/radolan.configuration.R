@@ -5,6 +5,7 @@ radolan.configuration <- list()
 
 radolan.configuration.extent900 <- raster::extent(-523.4622, 376.5378, -4658.645, -3758.645)
 radolan.configuration.crs <- CRS("+proj=stere +lat_0=90 +lat_ts=90 +lon_0=10 +k=0.93301270189 +x_0=0 +y_0=0 +a=6370040 +b=6370040 +to_meter=1000 +no_defs")
+
 radolan.configuration.time.format = "%y%m%d%H%M"
 
 #append configurations

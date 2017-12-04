@@ -1,7 +1,7 @@
 #' Read RADOLAN binary file from specified folder accordimg to the official DWD file pattern
 #'
 #' @param radolan.root root path, where RADOLAN images are stored (folder or URL)
-#' @param radolan.type RADOLAN image type
+#' @param radolan.type RADOLAN product type
 #' @param timestamp requested timestamp for the RADOLAN image
 #' @param previous if a timestamp is not available, check previous timestamps according to the specified RADOLAN interval
 #' @param previous.break number of previous timestamps to be checked, if previous = TRUE
@@ -21,16 +21,13 @@ ReadRadolan <- function(radolan.root,
     stop("Need to specify path to RADOLAN root folder or URL.")
 
   if(missing(radolan.type))
-    stop("Need to specify type of RADOLAN product.")
+    stop("Need to specify a RADOLAN product type.")
 
-  if(!(radolan.type %in% names(radolan.configuration)))
-    stop(paste("RADOLAN type", radolan.type, "is not supported.", sep=" "))
+  #get RADOLAN configuration
+  configuration <- ReadRadolan.getConfiguration(radolan.type)
 
   if(radolan.type == "FX" && !all(fx.prediction %in% seq(0,120,5)))
     stop("RADOLAN FX prediction must be within seq(from=0, to=120, by=5).")
-
-  #get RADOLAN configuration
-  configuration <- radolan.configuration[[radolan.type]]
 
   #set timestamp
   if(timestamp == "latest")
@@ -41,6 +38,34 @@ ReadRadolan <- function(radolan.root,
 
   #return
   return(radolan.raster)
+
+}
+
+
+#'
+#' Check, if RADOLAN product type is supported
+#' @param radolan.type RADOLAN product type
+#' @return true, if product tye is supported
+ReadRadolan.isSupported <- function(radolan.type){
+
+  if(missing(radolan.type))
+    stop("Need to specify a RADOLAN product type.")
+
+  return(radolan.type %in% names(xtruso::radolan.configuration))
+
+}
+
+
+#'
+#' Get RADOLAN product configuration
+#' @param radolan.type RADOLAN product type
+#' @return true, if product tye is supported
+ReadRadolan.getConfiguration <- function(radolan.type){
+
+  if(!ReadRadolan.isSupported(radolan.type))
+    stop(paste("RADOLAN type", radolan.type, "is not supported.", sep=" "))
+
+  return(xtruso::radolan.configuration[[radolan.type]])
 
 }
 
@@ -163,11 +188,8 @@ ReadRadolanBinary <- function(radolan.path,
   if(missing(radolan.type))
     stop("Need to specify type of RADOLAN product.")
 
-  if(!(radolan.type %in% names(radolan.configuration)))
-    stop(paste("RADOLAN type", type, "is not supported.", sep=" "))
-
   #get RADOLAN configuration
-  configuration <- radolan.configuration[[radolan.type]]
+  configuration <- ReadRadolan.getConfiguration(radolan.type)
 
   download <- FALSE
 

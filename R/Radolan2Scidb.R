@@ -4,9 +4,10 @@
 #' @param scidb.array scidb target array
 #' @param radolan.folder folder with RADOLAN binary files
 #' @param radolan.type radolan type
+#' @param sample sample size (e.g. for debugging)
 #' @return list with runtime information for raster creation and upload
 #' @export
-Radolan2Scidb <- function(scidb.conn, scidb.array, radolan.folder, radolan.type) {
+Radolan2Scidb <- function(scidb.conn, scidb.array, radolan.folder, radolan.type, sample = NA) {
 
   if(missing(scidb.conn))
     stop("Need to specify a scidb connection.")
@@ -25,15 +26,22 @@ Radolan2Scidb <- function(scidb.conn, scidb.array, radolan.folder, radolan.type)
   if(length(radolan.files) == 0)
     stop("There are no files matching the requested RADOLAN product.")
 
+  #subsample input, if requested
+  if(!is.na(sample)) radolan.files <- sample(radolan.files, sample)
+
   #iterate files, upload to scidb
   runtime <- c()
-  for(radolan.file in radolan.files){
+  for(i in 1:length(radolan.files)) {
     time <- Sys.time()
     #read raster
-    radolan.raster <- ReadRadolanBinary(radolan.file, radolan.type)
+    radolan.raster <- ReadRadolanBinary(radolan.files[i], radolan.type)
+
+    #remove versions after 10 uploads and with last upload
+    removeVersions <- (i == length(radolan.files) || i %% 10 == 0)
+
     #upload to scidb
     if(!is.null(radolan.raster))
-      Radolan2Scidb.loadRaster(scidb.conn, scidb.array, radolan.raster, removeVersions=TRUE)
+      Radolan2Scidb.loadRaster(scidb.conn, scidb.array, radolan.raster, removeVersions)
     else
       message(paste("File",radolan.file,"is NULL, was not uploaded to scidb", sep=" "))
     runtime <- c(runtime, Sys.time() - time)
@@ -175,35 +183,41 @@ Radolan2Scidb.createDataframe = function(radolan.raster) {
 #' @param scidb.array.name name of the target scidb array
 #' @param radolan.raster raster to upload
 #' @return true, if upload was successful
-Radolan2Scidb.loadRaster <- function(scidb.conn, scidb.array.name, radolan.raster, deleteUpload = TRUE, removeVersions=FALSE) {
+Radolan2Scidb.loadRaster <- function(scidb.conn, scidb.array, radolan.raster, deleteUpload = TRUE, removeVersions=FALSE) {
 
   tryCatch({
-
-    #transform raster
-    df <- Radolan2Scidb.createDataframe(radolan.raster)
 
     #get timestamp
     radolan.timestamp <- as.double.POSIXlt(attr(radolan.raster, "timestamp"))
 
+    #get raster matrix
+    matrix <- raster::as.matrix(radolan.raster)
+
+    #upload matrix using custom scidb function
+    scidb <- matvec2scidb.rasTime(scidb.conn, matrix, name=scidb.array, timestamp=radolan.timestamp)
+
+    #transform raster
+    #df <- Radolan2Scidb.createDataframe(radolan.raster)
+
     #create tmp array for upload
-    scidb.upload.id <- floor(runif(1, min=0, max=100000))
-    scidb.upload <- paste0("radolanUpload",scidb.upload.id)
-    Radolan2Scidb.createArray(scidb.conn, scidb.upload, paste0("<v:double,x:int64,y:int64> [i=1:", nrow(df), "]"), TRUE)
+    #scidb.upload.id <- floor(runif(1, min=0, max=100000))
+    #scidb.upload <- paste0("radolanUpload",scidb.upload.id)
+    #Radolan2Scidb.createArray(scidb.conn, scidb.upload, paste0("<v:double,x:int64,y:int64> [i=1:", nrow(df), "]"), TRUE)
 
     #upload dataframe
-    upload <- as.scidb(scidb.conn, df, scidb.upload)
+    #upload <- as.scidb(scidb.conn, df, scidb.upload)
 
     #add timestamp (apply), redimension to 3d and insert to final array
-    request.redimension <- sprintf("insert(redimension(apply(%s, %s, int64(%s)), %s), %s)", scidb.upload, "t", radolan.timestamp, scidb.array.name, scidb.array.name)
-    iquery(scidb.conn, request.redimension, return=FALSE)
+    #request.redimension <- sprintf("insert(redimension(apply(%s, %s, int64(%s)), %s), %s)", scidb.upload, "t", radolan.timestamp, scidb.array.name, scidb.array.name)
+    #iquery(scidb.conn, request.redimension, return=FALSE)
 
     #remove upload array
-    if(deleteUpload)
-      Radolan2Scidb.removeArray(scidb.conn, scidb.upload)
+    #if(deleteUpload)
+    #  Radolan2Scidb.removeArray(scidb.conn, scidb.upload)
 
     #remove old versions of target arrya
     if(removeVersions)
-      Radolan2Scidb.removeVersions(scidb.conn, scidb.array.name)
+      Radolan2Scidb.removeVersions(scidb.conn, scidb.array)
 
     return(TRUE)
 
@@ -219,12 +233,12 @@ Radolan2Scidb.loadRaster <- function(scidb.conn, scidb.array.name, radolan.raste
 #'
 #' @param scidb.conn scidbconnection
 #' @param scidb.array.name name of the target scidb array
-Radolan2Scidb.removeVersions <- function(scidb.conn, scidb.array.name) {
+Radolan2Scidb.removeVersions <- function(scidb.conn, scidb.array) {
 
   #get latest version
-  version.latest <- max(iquery(scidb.conn, sprintf("versions(%s)", scidb.array.name), return=TRUE)$version_id)
+  version.latest <- max(iquery(scidb.conn, sprintf("versions(%s)", scidb.array), return=TRUE)$version_id)
 
   #remove previous versions
-  iquery(scidb.conn, sprintf("remove_versions(%s, %s)", scidb.array.name, version.latest))
+  iquery(scidb.conn, sprintf("remove_versions(%s, %s)", scidb.array, version.latest))
 
 }

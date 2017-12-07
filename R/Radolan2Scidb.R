@@ -36,12 +36,9 @@ Radolan2Scidb <- function(scidb.conn, scidb.array, radolan.folder, radolan.type,
     #read raster
     radolan.raster <- ReadRadolanBinary(radolan.files[i], radolan.type)
 
-    #remove versions after 10 uploads and with last upload
-    removeVersions <- (i == length(radolan.files) || i %% 10 == 0)
-
     #upload to scidb
     if(!is.null(radolan.raster))
-      Radolan2Scidb.loadRaster(scidb.conn, scidb.array, radolan.raster, removeVersions)
+      Radolan2Scidb.loadRaster(scidb.conn, scidb.array, radolan.raster, TRUE)
     else
       message(paste("File",radolan.file,"is NULL, was not uploaded to scidb", sep=" "))
     runtime <- c(runtime, Sys.time() - time)

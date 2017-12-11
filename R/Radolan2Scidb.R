@@ -5,9 +5,13 @@
 #' @param radolan.folder folder with RADOLAN binary files
 #' @param radolan.type radolan type
 #' @param sample sample size (e.g. for debugging)
-#' @return list with runtime information for raster creation and upload
 #' @export
-Radolan2Scidb <- function(scidb.conn, scidb.array, radolan.folder, radolan.type, sample = NA) {
+Radolan2Scidb <- function(scidb.conn,
+                          scidb.array,
+                          radolan.folder,
+                          radolan.type,
+                          sample = NA,
+                          parallel = TRUE) {
 
   if(missing(scidb.conn))
     stop("Need to specify a scidb connection.")
@@ -29,22 +33,39 @@ Radolan2Scidb <- function(scidb.conn, scidb.array, radolan.folder, radolan.type,
   #subsample input, if requested
   if(!is.na(sample)) radolan.files <- sample(radolan.files, sample)
 
-  #iterate files, upload to scidb
-  runtime <- c()
-  for(i in 1:length(radolan.files)) {
-    time <- Sys.time()
-    #read raster
-    radolan.raster <- ReadRadolanBinary(radolan.files[i], radolan.type)
+  #parallel upload with foreach
+  if (parallel && "doParallel" %in% installed.packages()[, "Package"]) {
+    require(doParallel, quietly = TRUE)
 
-    #upload to scidb
-    if(!is.null(radolan.raster))
-      Radolan2Scidb.loadRaster(scidb.conn, scidb.array, radolan.raster, TRUE)
-    else
-      message(paste("File",radolan.file,"is NULL, was not uploaded to scidb", sep=" "))
-    runtime <- c(runtime, Sys.time() - time)
+    #init parallel environment
+    cl <- makeCluster(parallel::detectCores())
+    doParallel::registerDoParallel(cl)
+
+    foreach::foreach(i=1:length(radolan.files), .packages = c("raster","xtruso")) %dopar% {
+      #read raster
+      radolan.raster <- xtruso::ReadRadolanBinary(radolan.files[i], radolan.type)
+      #upload to scidb
+      if(!is.null(radolan.raster))
+        xtruso::Radolan2Scidb.loadRaster(scidb.conn, scidb.array, radolan.raster, removeVersions=TRUE)
+      else
+        message(paste("File",radolan.file,"is NULL, was not uploaded to scidb", sep=" "))
+    }
+
+    parallel::stopCluster(cl)
   }
 
-  return(runtime)
+  #non-parallel upload
+  else {
+    for(i in 1:length(radolan.files)) {
+      #read raster
+      radolan.raster <- ReadRadolanBinary(radolan.files[i], radolan.type)
+      #upload to scidb
+      if(!is.null(radolan.raster))
+        xtruso::Radolan2Scidb.loadRaster(scidb.conn, scidb.array, radolan.raster, removeVersions=TRUE)
+      else
+        message(paste("File",radolan.file,"is NULL, was not uploaded to scidb", sep=" "))
+    }
+  }
 
 }
 
@@ -191,7 +212,7 @@ Radolan2Scidb.loadRaster <- function(scidb.conn, scidb.array, radolan.raster, de
     matrix <- raster::as.matrix(radolan.raster)
 
     #upload matrix using custom scidb function
-    scidb <- matvec2scidb.rasTime(scidb.conn, matrix, name=scidb.array, timestamp=radolan.timestamp)
+    scidb <- scidb::matvec2scidb.rasTime(scidb.conn, matrix, name=scidb.array, timestamp=radolan.timestamp)
 
     #transform raster
     #df <- Radolan2Scidb.createDataframe(radolan.raster)

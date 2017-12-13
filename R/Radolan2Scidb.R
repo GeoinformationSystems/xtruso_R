@@ -4,13 +4,14 @@
 #' @param scidb.array scidb target array
 #' @param radolan.folder folder with RADOLAN binary files
 #' @param radolan.type radolan type
-#' @param sample sample size (e.g. for debugging)
+#' @param subset sample size (e.g. for debugging)
+#' @param parallel use parallel inset
 #' @export
 Radolan2Scidb <- function(scidb.conn,
                           scidb.array,
                           radolan.folder,
                           radolan.type,
-                          sample = NA,
+                          subset = NA,
                           parallel = TRUE) {
 
   if(missing(scidb.conn))
@@ -31,7 +32,7 @@ Radolan2Scidb <- function(scidb.conn,
     stop("There are no files matching the requested RADOLAN product.")
 
   #subsample input, if requested
-  if(!is.na(sample)) radolan.files <- sample(radolan.files, sample)
+  if(!is.na(subset)) radolan.files <- radolan.files[1:min(subset,length(radolan.files))]
 
   #parallel upload with foreach
   if (parallel && "doParallel" %in% installed.packages()[, "Package"]) {
@@ -233,7 +234,7 @@ Radolan2Scidb.loadRaster <- function(scidb.conn, scidb.array, radolan.raster, de
     #if(deleteUpload)
     #  Radolan2Scidb.removeArray(scidb.conn, scidb.upload)
 
-    #remove old versions of target arrya
+    #remove old versions of target array
     if(removeVersions)
       Radolan2Scidb.removeVersions(scidb.conn, scidb.array)
 

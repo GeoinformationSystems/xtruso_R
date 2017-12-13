@@ -224,8 +224,9 @@ ReadRadolanBinary <- function(radolan.path,
   #read file
   radolan.raster <- ReadRadolanBinary.read(radolan.path, configuration, rm.flagged)
 
-  #set timestamp as attribute
+  #set timestamp and product type as attributes
   attr(radolan.raster, "timestamp") <- ReadRadolanBinary.getTimestamp(radolan.path, configuration)
+  attr(radolan.raster, "type") <- radolan.type
 
   #delete downloaded file
   if(download)

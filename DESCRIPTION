@@ -12,7 +12,7 @@ Depends:
   rgdal
 Suggests:
   foreach,
-  doSNOW,
+  doParallel,
   scidb,
   ncdf4,
   R.utils

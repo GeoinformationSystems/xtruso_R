@@ -7,7 +7,11 @@
 #' @param sample sample size (e.g. for debugging)
 #' @return list with runtime information for raster creation and upload
 #' @export
-Radolan2Ncdf <- function(ncdf.filepath, radolan.folder, radolan.type, sample = NA, compression = NA) {
+Radolan2Ncdf <- function(ncdf.filepath,
+                         radolan.folder,
+                         radolan.type,
+                         subset = NA,
+                         compression = NA) {
 
   if(missing(ncdf.filepath))
     stop("Need to specify a NetCDF file path.")
@@ -26,7 +30,7 @@ Radolan2Ncdf <- function(ncdf.filepath, radolan.folder, radolan.type, sample = N
     stop("There are no files matching the requested RADOLAN product.")
 
   #subsample input, if requested
-  if(!is.na(sample)) radolan.files <- sample(radolan.files, sample)
+  if(!is.na(subset)) radolan.files <- radolan.files[1:min(subset,length(radolan.files))]
 
   #init NetCDF variable for RADOLAN
   ncdf.v <- Radolan2Ncdf.createVar(ncdf.phen=radolan.configuration$phenomenon, ncdf.phen.uom=radolan.configuration$uom, compression)
@@ -76,7 +80,10 @@ Radolan2Ncdf <- function(ncdf.filepath, radolan.folder, radolan.type, sample = N
 #' @param radolan.raster RADOLAN raster
 #' @param time.index index for raster timestamp within NetCDF file
 #' @param extent target extent of RADOLAN raster
-Radolan2Ncdf.writeRaster <- function(ncdf.file, ncdf.v, radolan.raster, time.index = 1) {
+Radolan2Ncdf.writeRaster <- function(ncdf.file,
+                                     ncdf.v,
+                                     radolan.raster,
+                                     time.index = 1) {
 
   if(missing(ncdf.file))
     stop("Need to specify a NetCDF file.")
@@ -104,7 +111,8 @@ Radolan2Ncdf.writeRaster <- function(ncdf.file, ncdf.v, radolan.raster, time.ind
 #' @param ncdf.filepath NetCDF file path
 #' @param ncdf.v NetCDF variable
 #' @export
-Radolan2Ncdf.createFile <- function(ncdf.filepath, ncdf.v) {
+Radolan2Ncdf.createFile <- function(ncdf.filepath,
+                                    ncdf.v) {
 
   if(!"ncdf4" %in% installed.packages()[, "Package"])
     stop("Package ncdf4 is not installed.")
@@ -152,7 +160,8 @@ Radolan2Ncdf.closeFile <- function(ncdf.file) {
 #'
 #' write default RADOLAN attributes to NetCDF file
 #' @param ncdf.file NetCDF file
-Radolan2Ncdf.writeDefaultAtt <- function(ncdf.file, radolan.type) {
+Radolan2Ncdf.writeDefaultAtt <- function(ncdf.file,
+                                         radolan.type) {
 
   if(missing(ncdf.file))
     stop("Need to specify a NetCDF file.")
@@ -186,7 +195,9 @@ Radolan2Ncdf.writeDefaultAtt <- function(ncdf.file, radolan.type) {
 #' @param ncdf.phen.uom phenomenon uom
 #' @param compression ncdf4 compression
 #' @return NetCDF variable for RADOLAN products
-Radolan2Ncdf.createVar <- function(ncdf.phen, ncdf.phen.uom, compression = NA) {
+Radolan2Ncdf.createVar <- function(ncdf.phen,
+                                   ncdf.phen.uom,
+                                   compression = NA) {
 
   if(missing(ncdf.phen))
     stop("Need to specify a phenomenon.")
@@ -218,11 +229,30 @@ Radolan2Ncdf.createVar <- function(ncdf.phen, ncdf.phen.uom, compression = NA) {
 #' request a RADOLAN raster or raster stack from NetCDF file
 #'
 #' @param ncdf.file NetCDF file
+#' @return available timestamps in the provided NetCDF file (as.double.POSIXlt)
+#' @export
+Radolan2Ncdf.getTimestamps <- function(ncdf.file,
+                                       ncdf.phen){
+
+  if(missing(ncdf.file))
+    stop("Need to specify a NetCDF file.")
+
+  return(ncdf.file$dim$t$vals)
+
+}
+
+
+#'
+#' request a RADOLAN raster or raster stack from NetCDF file
+#'
+#' @param ncdf.file NetCDF file
 #' @param timestamp single timestamp or list of timestamps to be requested
 #' @param ncdf.phen phenomenon
 #' @return RADOLAN raster or raster stack
 #' @export
-Radolan2Ncdf.requestImage <- function(ncdf.file, timestamp, ncdf.phen){
+Radolan2Ncdf.requestImage <- function(ncdf.file,
+                                      timestamp,
+                                      ncdf.phen){
 
   if(missing(ncdf.file))
     stop("Need to specify a NetCDF file.")
@@ -247,6 +277,10 @@ Radolan2Ncdf.requestImage <- function(ncdf.file, timestamp, ncdf.phen){
       radolan.raster <- raster::setExtent(radolan.raster, xtruso::radolan.configuration.extent900)
       raster::projection(radolan.raster) <- xtruso::radolan.configuration.crs
 
+      #set timestamp and product type as attributes
+      attr(radolan.raster, "timestamp") <- as.POSIXct(timestamp, origin="1970-01-01", tz="UTC")
+      attr(radolan.raster, "type") <- ncdf4::ncatt_get(ncdf.file, 0, "product_type")$value
+
       radolan.stack <- raster::addLayer(radolan.stack, radolan.raster)
     }
   }
@@ -264,9 +298,16 @@ Radolan2Ncdf.requestImage <- function(ncdf.file, timestamp, ncdf.phen){
 #' @param start start indices (x, y, t)
 #' @param count dim length to be requested  (x, y, t); -1 indicates whole dimension
 #' @param ncdf.phen phenomenon
+#' @param xyIndex flag: start coordinates for x and y are index coordinates; if false RADOLAN coordinates are assumed
+#' @param tIndex flag: start timestamp is index; if false double timestamp in seconds since 1970-01-01 is assumed
 #' @return RADOLAN raster or raster stack
 #' @export
-Radolan2Ncdf.requestSubset <- function(ncdf.file, start, count, ncdf.phen){
+Radolan2Ncdf.requestSubset <- function(ncdf.file,
+                                       start,
+                                       count,
+                                       ncdf.phen,
+                                       xyIndex=TRUE,
+                                       tIndex=FALSE){
 
   if(missing(ncdf.file))
     stop("Need to specify a NetCDF file.")
@@ -280,11 +321,13 @@ Radolan2Ncdf.requestSubset <- function(ncdf.file, start, count, ncdf.phen){
   if(missing(count) || length(count) != 3)
     stop("Need to specify a valid count (x, y, t).")
 
-  #get t dimension index for start
-  start.t.index <- match(start[3], ncdf.file$dim$t$vals)
-  #if !NA - set start coordinate index
-  if(!is.na(start.t.index))
-    start[3] <- start.t.index
+  #get xy start coordinate
+  if(xyIndex == FALSE)
+    start[1:2] <- Utility.getRADOLANindex(start[1], start[2])
+
+  #get timestamp
+  if(tIndex == FALSE)
+    start[3] <- match(start[3], ncdf.file$dim$t$vals)
 
   #get subset from NetCDF file
   radolan.subset <- ncdf4::ncvar_get(ncdf.file, ncdf.phen, start=start, count=count)

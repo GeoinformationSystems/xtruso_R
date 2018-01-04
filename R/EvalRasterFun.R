@@ -20,13 +20,13 @@ EvalRasterFun <- function(stack,
   })
 
   #parallel execution with foreach
-  if (parallel && "doSNOW" %in% installed.packages()[, "Package"]) {
+  if (parallel && "doParallel" %in% installed.packages()[, "Package"]) {
 
-    require(doSNOW, quietly = TRUE)
+    require(doParallel, quietly = TRUE)
 
     #init parallel environment
-    cl <- snow::makeCluster(as.integer(Sys.getenv("NUMBER_OF_PROCESSORS")) - 1)
-    doSNOW::registerDoSNOW(cl)
+    cl <- makeCluster(parallel::detectCores() - 1)
+    doParallel::registerDoParallel(cl)
 
     #evaluation function
     for(i in 1:nlayers(stack)) {
@@ -37,7 +37,7 @@ EvalRasterFun <- function(stack,
     }
 
     #stop cluster
-    snow::stopCluster(cl)
+    parallel::stopCluster(cl)
 
   #sequential execution with apply
   } else {

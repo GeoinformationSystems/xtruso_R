@@ -39,7 +39,7 @@ Radolan2Scidb <- function(scidb.conn,
     require(doParallel, quietly = TRUE)
 
     #init parallel environment
-    cl <- makeCluster(parallel::detectCores())
+    cl <- makeCluster(parallel::detectCores() - 1)
     doParallel::registerDoParallel(cl)
 
     foreach::foreach(i=1:length(radolan.files), .packages = c("raster","xtruso")) %dopar% {

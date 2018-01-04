@@ -298,6 +298,10 @@ ReadRadolanBinary.read <- function(radolan.path,
   #set extent and projection
   raster::extent(radolan.raster) <- configuration$extent
   raster::projection(radolan.raster) <- configuration$proj
+  
+  #handle Bit 13 (secondary data source for 2-bit data)
+  if(configuration$bits == 2)
+    radolan.raster[radolan.raster >= 4096 & radolan.raster < 8192] <- radolan.raster[radolan.raster >= 4096 & radolan.raster < 8192] - 4096
 
   #remove flagged values
   if(rm.flagged)

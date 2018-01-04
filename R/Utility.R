@@ -41,7 +41,7 @@ Utility.getRADOLANIndexFromCoord <- function(coord.x, coord.y) {
   index.y <- if(((index.y + .5) %% 1) < 0.05 || ((index.y + .5) %% 1) > 0.95) c(floor(index.y), ceiling(index.y)) else round(index.y)
 
   #return index
-  return(expand.grid(x=index.x, y=index.y))
+  return(list(x=index.x, y=index.y))
 
 }
 

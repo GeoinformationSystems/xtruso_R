@@ -131,7 +131,11 @@ Radolan2Ncdf.createFile <- function(ncdf.filepath,
 #'
 #' close default RADOLAN attributes to NetCDF file
 #' @param ncdf.file NetCDF file
+#' @export
 Radolan2Ncdf.openFile <- function(ncdf.filepath) {
+  
+  if(!"ncdf4" %in% installed.packages()[, "Package"])
+    stop("Package ncdf4 is not installed.")
 
   if(missing(ncdf.filepath))
     stop("Need to specify a NetCDF filepath.")
@@ -139,7 +143,7 @@ Radolan2Ncdf.openFile <- function(ncdf.filepath) {
   if(!file.exists(ncdf.filepath))
     stop("Need to specify an existing NetCDF filepath.")
 
-  return(nc_open(ncdf.filepath))
+  return(ncdf4::nc_open(ncdf.filepath))
 
 }
 

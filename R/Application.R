@@ -109,6 +109,6 @@ Application.getTimeSeries <- function(radolan.type,
 # 
 # 
 # 
-rw <- ReadRadolan("https://opendata.dwd.de/weather/radar/radolan/rw", "RW")
-# sf <- ReadRadolan("https://opendata.dwd.de/weather/radar/radolan/sf", "SF")
-rx <- ReadRadolan("https://opendata.dwd.de/weather/radar/composit/rx", "RX")
+#rw <- ReadRadolan("https://opendata.dwd.de/weather/radar/radolan/rw", "RW")
+#sf <- ReadRadolan("https://opendata.dwd.de/weather/radar/radolan/sf", "SF")
+#rx <- ReadRadolan("https://opendata.dwd.de/weather/radar/composit/rx", "RX")

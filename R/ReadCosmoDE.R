@@ -1,6 +1,6 @@
 #' Read COSMO DE grib file
 #'
-#' This function reads a COSMA DE file as provided by the DWD
+#' This function reads a COSMO DE file as provided by the DWD
 #'
 #' @param cosmo.root root path (folder or URL) to COSMO DE files (.grib2 or .bz2)
 #' @param cosmo.parameter COSMO DE parameter

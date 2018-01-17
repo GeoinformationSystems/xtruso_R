@@ -1,6 +1,6 @@
 library(raster)
 
-#create configuration with RADOLAN
+#create configuration for RADOLAN
 radolan.configuration <- list()
 
 radolan.configuration.extent900 <- raster::extent(-523.4622, 376.5378, -4658.645, -3758.645)

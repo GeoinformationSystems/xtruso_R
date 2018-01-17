@@ -87,16 +87,16 @@ ZonalOverlap.getWeightedOverlap <- function(raster,
 }
 
 
-#' Get Zonal Overlap from previously calculated overlap dataframe
+#' Get subset from overlap dataframe
 #'
 #' @param df.overlap overlap dataframe
 #' @param index polygon index or indices
 #' @param name polygon name(s); if set, the index is ignored
 #' @return dataframe with overlap information (id, name, cell, x, y, weight)
 #' @export
-ZonalOverlap.getPolygonOverlap <- function(df.overlap,
-                                           index,
-                                           name = NA) {
+ZonalOverlap.subsetOverlap <- function(df.overlap,
+                                       index,
+                                       name = NA) {
 
   if(missing(df.overlap) || !all(c("index","name") %in% names(overlap)))
     stop("Need to specify valid input dataframe")
@@ -116,18 +116,17 @@ ZonalOverlap.getPolygonOverlap <- function(df.overlap,
 
 #' Get mean value for provided raster based on Zonal Overlap
 #'
-#' @param raster input raster or raster stack
+#' @param raster input raster
 #' @param df.overlap overlap dataframe
 #' @param statisitcs statistics to compute
 #' @param parallel flag: use parallel computation
 #' @return
 #' @export
-ZonalOverlap.geStatistics <- function(radolan.raster,
-                                      df.overlap,
-                                      parallel = TRUE) {
+ZonalOverlap.getStatistics <- function(radolan.raster,
+                                       df.overlap) {
 
   if(missing(radolan.raster))
-    stop("Need to specify input RADOLAN raster or raster stack")
+    stop("Need to specify input RADOLAN raster")
 
   if(missing(df.overlap) || !all(c("index","name") %in% names(df.overlap)))
     stop("Need to specify valid input dataframe")
@@ -142,59 +141,26 @@ ZonalOverlap.geStatistics <- function(radolan.raster,
                          stat = character(),
                          value = numeric())
 
-  #parallel execution with foreach
-  if (parallel && "doParallel" %in% installed.packages()[, "Package"]) {
-
-    require(doParallel, quietly = TRUE)
-
-    #init parallel environment
-    cl <- makeCluster(parallel::detectCores() - 1)
-    doParallel::registerDoParallel(cl)
-
-    #evaluation function
-    for(i in 1:nlayers(radolan.raster)) {
-
-      #calculate and append stats for current raster
-      raster.i <- radolan.raster[[i]]
-      df.overlap.tmp <- foreach::foreach(j=1:nrow(df.overlap), .combine=rbind) %dopar% {
-
-      }
-      df.stats <- rbind(df.stats, setNames(df.stats.tmp, names(df.stats)))
-
+  for(index in indices) {
+  
+    #get subset for index
+    overlap <- ZonalOverlap.subsetOverlap(df.overlap, index)
+    
+    #calculate and append stats for current raster
+    min <- 999
+    max <- -999
+    mean <- 0
+    for(j in 1:nrow(overlap)) {
+      v <- raster.i[overlap[j, "cell"]]
+      min <- min(min, v)
+      max <- max(max, v)
+      mean <- mean + overlap[j, "weight"] * v
     }
-
-    #stop cluster
-    parallel::stopCluster(cl)
-
-    #sequential execution with apply
-  } else {
-
-    #evaluation function
-    for(i in 1:nlayers(radolan.raster)) {
-      for(index in indices) {
-
-        #get subset for index
-        overlap <- ZonalOverlap.getPolygonOverlap(df.overlap, index)
-
-        #calculate and append stats for current raster
-        raster.i <- radolan.raster[[i]]
-        min <- 999
-        max <- -999
-        mean <- 0
-        for(j in 1:nrow(overlap)) {
-          v <- raster.i[overlap[j, "cell"]]
-          min <- min(min, v)
-          max <- max(max, v)
-          mean <- mean + overlap[j, "weight"] * v
-        }
-
-        df.stats <- rbind(df.stats, setNames(data.frame(index, overlap$name[1], as.POSIXct(attr(raster.i, "timestamp")), "min", min), names(df.stats)))
-        df.stats <- rbind(df.stats, setNames(data.frame(index, overlap$name[1], as.POSIXct(attr(raster.i, "timestamp")), "max", max), names(df.stats)))
-        df.stats <- rbind(df.stats, setNames(data.frame(index, overlap$name[1], as.POSIXct(attr(raster.i, "timestamp")), "mean", mean), names(df.stats)))
-
-      }
-    }
-
+    
+    df.stats <- rbind(df.stats, setNames(data.frame(index, overlap$name[1], as.POSIXct(attr(radolan.raster, "timestamp")), "min", min), names(df.stats)))
+    df.stats <- rbind(df.stats, setNames(data.frame(index, overlap$name[1], as.POSIXct(attr(radolan.raster, "timestamp")), "max", max), names(df.stats)))
+    df.stats <- rbind(df.stats, setNames(data.frame(index, overlap$name[1], as.POSIXct(attr(radolan.raster, "timestamp")), "mean", mean), names(df.stats)))
+  
   }
 
   return(df.stats)

@@ -3,16 +3,41 @@
 #' @param radolan.type RADOLAN type
 #' @param time.start start date (ISO8601 time string)
 #' @param time.end end date (ISO8601 time string)
+#' @param time.format time format
+#' @param time.zone time zone
 #' @param coord.x x coordinate
 #' @param coord.y y coordinate
 #' @export
-Application.getTimeSeries <- function(radolan.type,
-                                      time.start,
-                                      time.end,
-                                      time.format = "%Y-%m-%d %H:%M:%S",
-                                      time.zone = "UTC",
-                                      coord.x,
-                                      coord.y) {
+Application.getTimeSeriesForCoord <- function(radolan.type,
+                                              time.start,
+                                              time.end,
+                                              time.format = "%Y-%m-%d %H:%M:%S",
+                                              time.zone = "UTC",
+                                              coord.x,
+                                              coord.y) {
+  
+  #get coord index
+  coord.index <- Utility.getRADOLANIndexFromCoord(coord.x, coord.y)
+  
+  return(Application.getTimeSeriesForIndex(radolan.type, time.start, time.end, time.format, time.zone, coord.index))
+  
+}
+
+
+#' Read single timeseries from RADOLAN
+#'
+#' @param radolan.type RADOLAN type
+#' @param time.start start date (ISO8601 time string)
+#' @param time.end end date (ISO8601 time string)
+#' @param time.format time format
+#' @param time.zone time zone
+#' @param coord.index coordinate index (x, y)
+Application.getTimeSeriesForIndex <- function(radolan.type,
+                                              time.start,
+                                              time.end,
+                                              time.format = "%Y-%m-%d %H:%M:%S",
+                                              time.zone = "UTC",
+                                              coord.index) {
   
   #get start/end time index
   time.start <- as.POSIXct(time.start, format=time.format, tz=time.zone)
@@ -20,9 +45,6 @@ Application.getTimeSeries <- function(radolan.type,
   
   #get target year(s)
   years <- format(time.start, "%Y") : format(time.end, "%Y")
-  
-  #get coord index
-  coord.index <- Utility.getRADOLANIndexFromCoord(coord.x, coord.y)
   
   #set NetCDF file(s)
   ncdf.files = list()
@@ -51,7 +73,7 @@ Application.getTimeSeries <- function(radolan.type,
   ### TODO implement subsetting across multiple NetCDF files ###
   else
     stop("selection across multiple years is not yet supported")
-
+  
   
   #return final dataframe, calculates mean for each timestamp
   return(data.frame(t = c(timestamps[start.index:end.index]), v = apply(subset, 2, mean)))

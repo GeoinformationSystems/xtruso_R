@@ -175,8 +175,8 @@ Radolan2Ncdf.writeDefaultAtt <- function(ncdf.file,
 
   #set dimension description
   ncdf4::ncatt_put(ncdf.file, "x", 'standard_name', 'xCoordinate')
-  ncdf4::ncatt_put(ncdf.file, "y", 'standard_name', 'YCordinate')
-  ncdf4::ncatt_put(ncdf.file, "t", 'standard_name', 'Timestamp')
+  ncdf4::ncatt_put(ncdf.file, "y", 'standard_name', 'yCordinate')
+  ncdf4::ncatt_put(ncdf.file, "t", 'standard_name', 'time')
 
   #set axis information
   ncdf4::ncatt_put(ncdf.file, "x", "axis", "X")
@@ -187,7 +187,7 @@ Radolan2Ncdf.writeDefaultAtt <- function(ncdf.file,
   ncdf4::ncatt_put(ncdf.file, 0, "proj4_params", as.character(xtruso::radolan.configuration.crs))
 
   #set radolan info
-  ncdf4::ncatt_put(ncdf.file, 0, "product_type", radolan.type)
+  ncdf4::ncatt_put(ncdf.file, 0, "RADOLAN_product", radolan.type)
 
 }
 

@@ -5,7 +5,7 @@ Description: Hydro-meteorological analysis for the EXTRUSO Project
 Version: 0.1.0
 Authors@R: c(
   person("Stefan", "Wiemann", email = "stefan.wiemann@tu-dresden.de", role = c("aut", "cre")),
-  person("Rico", "Kronenberg", email = "rico.kronenberg@tu-dresden.de", role = c("aut"))),
+  person("Rico", "Kronenberg", email = "rico.kronenberg@tu-dresden.de", role = c("aut")),
   person("Firas", "Al Janabi", email = "firas.aljanabi@tu-dresden.de", role = c("aut")))
 License: CC BY 4.0
 Encoding: UTF-8

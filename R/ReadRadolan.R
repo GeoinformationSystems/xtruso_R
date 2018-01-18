@@ -30,7 +30,7 @@ ReadRadolan <- function(radolan.root,
     stop("RADOLAN FX prediction must be within seq(from=0, to=120, by=5).")
 
   #set timestamp
-  if("POSIXct" %in% class(timestamp) && timestamp == "latest")
+  if(!"POSIXct" %in% class(timestamp) && timestamp == "latest")
     timestamp <- eval(parse(text = configuration$time.latest))
 
   #read file

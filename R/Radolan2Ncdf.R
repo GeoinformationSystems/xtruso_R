@@ -11,6 +11,7 @@ Radolan2Ncdf <- function(ncdf.filepath,
                          radolan.folder,
                          radolan.type,
                          subset = NA,
+                         chunksizes = NA,
                          compression = NA) {
 
   if(missing(ncdf.filepath))
@@ -33,13 +34,13 @@ Radolan2Ncdf <- function(ncdf.filepath,
   if(!is.na(subset)) radolan.files <- radolan.files[1:min(subset,length(radolan.files))]
 
   #init NetCDF variable for RADOLAN
-  ncdf.v <- Radolan2Ncdf.createVar(ncdf.phen=radolan.configuration$phenomenon, ncdf.phen.uom=radolan.configuration$uom, compression)
+  ncdf.v <- Radolan2Ncdf.createVar(ncdf.phen=radolan.configuration$phenomenon, ncdf.phen.uom=radolan.configuration$uom, chunksizes, compression)
 
   #init NetCDF file
   ncdf.file <- Radolan2Ncdf.createFile(ncdf.filepath, ncdf.v)
   Radolan2Ncdf.writeDefaultAtt(ncdf.file, radolan.type)
 
-  #query scidb
+  #write
   tryCatch({
 
     #iterate files, write NetCDF
@@ -67,10 +68,73 @@ Radolan2Ncdf <- function(ncdf.filepath,
 
   })
 
-  return(ncdf.file)
-
 }
 
+
+#'
+#' rechunk a RADOLNA NetCDF file
+#' @param ncdf.file NetCDF file
+#' @param chunks target chunk size
+#' @export
+Radolan2Ncdf.rechunk <- function(ncdf.source,
+                                 ncdf.target,
+                                 chunksizes,
+                                 compression = NA) {
+  
+  if(missing(ncdf.source) || !file.exists(ncdf.source))
+    stop("Need to specify a NetCDF file.")
+  
+  if(missing(chunksizes) || length(chunksizes) != 3)
+    stop("Need to specify valid target chunks.")
+  
+  #get source file
+  ncdf.in <- Radolan2Ncdf.openFile(ncdf.source)
+  
+  #init target NetCDF variable for RADOLAN
+  radolan.configuration <- ReadRadolan.getConfiguration(ncdf4::ncatt_get(ncdf.in, 0, "RADOLAN_product")$value)
+  ncdf.v <- Radolan2Ncdf.createVar(ncdf.phen=radolan.configuration$phenomenon, ncdf.phen.uom=radolan.configuration$uom, chunksizes, compression)
+  
+  #init NetCDF file
+  ncdf.out <- Radolan2Ncdf.createFile(ncdf.target, ncdf.v)
+  Radolan2Ncdf.writeDefaultAtt(ncdf.out, radolan.configuration$type)
+  
+  #write
+  tryCatch({
+    
+    #iterate files, write NetCDF
+    for(i in 1:ncdf.in$dim$t$len){
+      
+      radolan.raster <- raster::raster(ncdf4::ncvar_get(ncdf.in, ncdf.in$var$precipitation$name, start=c(1,1,i), count=c(-1,-1,1)))
+      
+      #set RADOLAN extent and CRS
+      radolan.raster <- raster::setExtent(radolan.raster, xtruso::radolan.configuration.extent900)
+      raster::projection(radolan.raster) <- xtruso::radolan.configuration.crs
+      
+      #set timestamp and product type as attributes
+      attr(radolan.raster, "timestamp") <- as.POSIXct(ncdf.in$dim$t$vals[i], origin="1970-01-01", tz="UTC")
+      attr(radolan.raster, "type") <- ncdf4::ncatt_get(ncdf.in, 0, "product_type")$value
+      
+      #write to NetCDF
+      if(!is.null(radolan.raster))
+        Radolan2Ncdf.writeRaster(ncdf.out, ncdf.v, radolan.raster, time.index=i)
+      
+      else
+        message(paste("File",radolan.file,"is NULL, was not written to NetCDF", sep=" "))
+    }
+    
+  }, error = function(err) {
+    
+    message(err,"\n")
+    
+  }, finally = {
+    
+    #close file
+    Radolan2Ncdf.closeFile(ncdf.in)
+    Radolan2Ncdf.closeFile(ncdf.out)
+    
+  })
+  
+}
 
 
 #'
@@ -197,10 +261,12 @@ Radolan2Ncdf.writeDefaultAtt <- function(ncdf.file,
 #' create NetCDF Variable for RADOLAN data (extent 900*900*t)
 #' @param ncdf.phen phenomenon
 #' @param ncdf.phen.uom phenomenon uom
-#' @param compression ncdf4 compression
+#' @param chunksizes NetCDF chunksize
+#' @param compression NetCDF compression level
 #' @return NetCDF variable for RADOLAN products
 Radolan2Ncdf.createVar <- function(ncdf.phen,
                                    ncdf.phen.uom,
+                                   chunksizes = NA,
                                    compression = NA) {
 
   if(missing(ncdf.phen))
@@ -214,15 +280,15 @@ Radolan2Ncdf.createVar <- function(ncdf.phen,
 
   #get x dimension (subtract .5 to get center of cell)
   ncdf.x <- ncdf4::ncdim_def("x","m", seq(xtruso::radolan.configuration.extent900@xmin + .5, xtruso::radolan.configuration.extent900@xmax - .5, 1))
-
+  
   #get y dimension (subtract .5 to get center of cell)
   ncdf.y <- ncdf4::ncdim_def("y","m", seq(xtruso::radolan.configuration.extent900@ymin + .5, xtruso::radolan.configuration.extent900@ymax - .5, 1))
-
+  
   #get unlimited time dimension
   ncdf.t <- ncdf4::ncdim_def("t", "seconds since 1970-01-01 00:00", as.integer(), unlim=TRUE)
 
   #create variable declaration
-  ncdf.v <- ncdf4::ncvar_def(ncdf.phen, ncdf.phen.uom, list(ncdf.x, ncdf.y, ncdf.t), NA, prec="float", compression = compression)
+  ncdf.v <- ncdf4::ncvar_def(ncdf.phen, ncdf.phen.uom, list(ncdf.x, ncdf.y, ncdf.t), NA, prec="float", chunksizes=chunksizes, compression=compression)
 
   return(ncdf.v)
 

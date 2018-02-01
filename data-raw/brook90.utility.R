@@ -1,10 +1,10 @@
 
 #   Code by R.Kronenberg as RK [06112017]  based on Brook90 by Federer et.al
-#  modified RK [16112017]
+#  modified RK [01022018]
 #
 #   TU Dresden 
-#   Institut für Hydrologie und Meteorologie
-#   Professur für Meteorologie
+#   Institut fuer Hydrologie und Meteorologie
+#   Professur fuer Meteorologie
 #   2017
 #
 #
@@ -2546,17 +2546,18 @@ MSBITERATE<-function(){
         VRFLI[iiii]<<-VERT(iiii)
         ###                                                                                                                                                         ^^^^^^^^^
       }
-    }
-    #           bottom layer
-    if( DRAIN > 0.0001){
-      #              gravity drainage only
-      VRFLI[NLAYER] <<- DRAIN * KK[NLAYER] * (1 - STONEF[NLAYER])
-      #            ElseIf DRAIN < -.0001 Then
-      #              fixed water table at bottom of profile - not implemented, oscillation problems
-      #               VRFLI(NLAYER%) = -DRAIN * (1 - STONEF(NLAYER%)) * KK(NLAYER%) * (PSIM(NLAYER%) / RHOWG + THICK(NLAYER%) / 2)
     }else{
-      #              bottom of profile sealed
-      VRFLI[NLAYER] <<- 0
+      #           bottom layer
+      if( DRAIN > 0.0001){
+        #              gravity drainage only
+        VRFLI[NLAYER] <<- DRAIN * KK[NLAYER] * (1 - STONEF[NLAYER])
+        #            ElseIf DRAIN < -.0001 Then
+        #              fixed water table at bottom of profile - not implemented, oscillation problems
+        #               VRFLI(NLAYER%) = -DRAIN * (1 - STONEF(NLAYER%)) * KK(NLAYER%) * (PSIM(NLAYER%) / RHOWG + THICK(NLAYER%) / 2)
+      }else{
+        #              bottom of profile sealed
+        VRFLI[NLAYER] <<- 0
+      }
     }
   }
   
@@ -2826,6 +2827,46 @@ swchek<-function(i){
   }
 }
 
+#********************************************************************************
+DOYF<-function(day,month, daymo){
+  
+  doyy<-0
+  if(fnleap()){
+    daymo[2]<-29
+  }else{
+    daymo[2]<-28
+  }
+  
+  if(month>1)
+    doyy<-daymo[1]+doyy
+  if(month>2)
+    doyy<-daymo[2]+doyy
+  if(month>3)
+    doyy<-daymo[3]+doyy
+  if(month>4)
+    doyy<-daymo[4]+doyy
+  if(month>5)
+    doyy<-daymo[5]+doyy
+  if(month>6)
+    doyy<-daymo[6]+doyy
+  if(month>7)
+    doyy<-daymo[7]+doyy
+  if(month>8)
+    doyy<-daymo[8]+doyy
+  if(month>9)
+    doyy<-daymo[9]+doyy
+  if(month>10)
+    doyy<-daymo[10]+doyy 
+  if(month>11)
+    doyy<-daymo[11]+doyy
+  if(month>12)
+    doyy<-daymo[12]+doyy 
+  
+  doyy<-doyy+day
+  
+  return(doyy)
+}
+
 
 #environment variables defined during model run; must be initialized to prevent setting of global variables
 IInterValDay <- NULL
@@ -2861,7 +2902,7 @@ rsnod <- NULL
 #' @author R.Kronenberg as RK [06112017]  based on Brook90 by Federer et.al
 #' @author TU Dresden, Institut für Hydrologie und Meteorologie, Professur für Meteorologie, 2017
 execute <- function(){
-  
+  print("hello")
   #B90<-function(){   ANMACHEN WIEDER
   #called and returned only from one location in msbrunB990
   
@@ -2932,10 +2973,17 @@ execute <- function(){
         YEARN <<- YEARN + 2000
       }
     }
-    MONTHN <<- as.numeric(MData[[2]][1])
-    DOM <<- as.numeric(MData[[3]][1])
+    #[rk] geändert 01022018 
+    #MONTHN <<- as.numeric(MData[[2]][1])
+    #DOM <<- as.numeric(MData[[3]][1])
     #NPINT =1
-    DOY <<- as.POSIXlt(paste(sprintf("%02d", DOM),sprintf("%02d", MONTHN),YEARN,sep=""), format = "%d%m%y")$yday+1  
+    #DOY <<- as.POSIXlt(paste(sprintf("%02d", DOM),sprintf("%02d", MONTHN),YEARN,sep=""), format = "%d%m%y")$yday+1  
+    
+    
+    MONTHN = as.numeric(MData[[2]][IDAY])
+    DOM = as.numeric(MData[[3]][IDAY])
+    #NPINT =1
+    DOY = DOY=DOYF(DOM,MONTHN,DAYMO)
     if (fnleap()) {
       DAYMO[2] <<- 29
     } else{
@@ -3296,9 +3344,18 @@ execute <- function(){
     #GoTo endrun
     #End If
     #set up for next day
-    DOM <<- DOM + 1
-    DOY <<- DOY + 1
+    #[€rk] geändert seit 01022018
+    #DOM <<- DOM + 1
+    #DOY <<- DOY + 1
     IDAY <<- IDAY + 1
+    
+    MONTHN = as.numeric(MData[[2]][IDAY])
+    DOM = as.numeric(MData[[3]][IDAY])
+    YEARN = as.numeric(MData[[1]][IDAY])
+    #NPINT =1
+    if(IDAY <= NDAYS)
+      DOY=DOYF(DOM,MONTHN,DAYMO)
+    
     #* * * I N P U T   W E A T H E R   L I N E   F R O M   D F I L E * * *
     #subdatafileline()
     #Call subcheckdata

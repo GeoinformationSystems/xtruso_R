@@ -158,8 +158,8 @@ Radolan2Ncdf.writeRaster <- function(ncdf.file,
   #get timestamp
   timestamp <- as.double(attr(radolan.raster, "timestamp"))
 
-  #get raster matrix
-  matrix <- raster::as.matrix(radolan.raster)
+  #get raster matrix, transpose to get axis order x,y from matrix row,col
+  matrix <- t(raster::as.matrix(radolan.raster))
 
   #add timestamp as variable
   ncdf4::ncvar_put(ncdf.file, "t", timestamp, start=time.index, count=1)
@@ -340,8 +340,12 @@ Radolan2Ncdf.requestImage <- function(ncdf.file,
     t.index <- match(t, ncdf.file$dim$t$vals)
 
     if(!is.na(t.index)){
-      #get raster from NetCDF file
-      radolan.raster <- raster::raster(ncdf4::ncvar_get(ncdf.file, ncdf.phen, start=c(1,1,t.index), count=c(-1,-1,1)))
+      
+      #get image subset
+      radolan.matrix <- ncdf4::ncvar_get(ncdf.file, ncdf.phen, start=c(1,1,t.index), count=c(-1,-1,1))
+      
+      #get raster from NetCDF file, transposes matrix to get from x,y to row,col order
+      radolan.raster <- raster::raster(t(radolan.matrix))
 
       #set RADOLAN extent and CRS
       radolan.raster <- raster::setExtent(radolan.raster, xtruso::radolan.configuration.extent900)
@@ -352,6 +356,7 @@ Radolan2Ncdf.requestImage <- function(ncdf.file,
       attr(radolan.raster, "type") <- ncdf4::ncatt_get(ncdf.file, 0, "product_type")$value
 
       radolan.stack <- raster::addLayer(radolan.stack, radolan.raster)
+      
     }
   }
 
@@ -370,38 +375,41 @@ Radolan2Ncdf.requestImage <- function(ncdf.file,
 #' @param ncdf.phen phenomenon
 #' @param xyIndex flag: start coordinates for x and y are index coordinates; if false RADOLAN coordinates are assumed
 #' @param tIndex flag: start timestamp is index; if false double timestamp in seconds since 1970-01-01 is assumed
-#' @return RADOLAN raster or raster stack
+#' @return RADOLAN value subset
 #' @export
-Radolan2Ncdf.requestSubset <- function(ncdf.file,
+Radolan2Ncdf.requestSubset <- function(ncdf,
                                        start,
                                        count,
                                        ncdf.phen,
-                                       xyIndex=TRUE,
-                                       tIndex=FALSE){
+                                       xyIndex = TRUE,
+                                       tIndex = FALSE) {
 
-  if(missing(ncdf.file))
-    stop("Need to specify a NetCDF file.")
+  if(missing(ncdf))
+    stop("Need to specify a NetCDF file pointer.")
 
   if(missing(ncdf.phen))
-    ncdf.phen <- ncdf.file$var[[1]]$name
+    ncdf.phen <- ncdf$var[[1]]$name
 
   if(missing(start) || length(start) != 3)
-    stop("Need to specify a valid start coordinate (x, y, t).")
+    stop("Need to specify a valid start coordinate or index (x, y, t).")
 
   if(missing(count) || length(count) != 3)
     stop("Need to specify a valid count (x, y, t).")
 
   #get xy start coordinate
   if(xyIndex == FALSE)
-    start[1:2] <- Utility.getRADOLANindex(start[1], start[2])
+    start[1:2] <- Utility.getRADOLANIndexFromCoord(start[1], start[2])
 
   #get timestamp
   if(tIndex == FALSE)
-    start[3] <- match(start[3], ncdf.file$dim$t$vals)
+    start[3] <- match(start[3], ncdf$dim$t$vals)
 
   #get subset from NetCDF file
-  radolan.subset <- ncdf4::ncvar_get(ncdf.file, ncdf.phen, start=start, count=count)
+  subset <- ncdf4::ncvar_get(ncdf, ncdf.phen, start=start, count=count, collapse_degen=FALSE)
+  
+  #transpose subset to get row,col order from x,y
+  subset <- aperm(subset, c(2,1,3))
 
-  return(radolan.subset)
+  return(subset)
 
 }

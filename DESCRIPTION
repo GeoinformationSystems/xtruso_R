@@ -18,4 +18,5 @@ Suggests:
   doParallel,
   scidb,
   ncdf4,
-  R.utils
+  R.utils,
+  igraph

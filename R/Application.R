@@ -1,58 +1,46 @@
-#' Read single timeseries from RADOLAN
+#' Read timeseries from RADOLAN NetCDF file
 #'
+#' @param ncdf.folder folder with NetCDF files (files must follow naming convention radolan%%radolan.type%%-%%year%%)
 #' @param radolan.type RADOLAN type
-#' @param time.start start date (ISO8601 time string)
-#' @param time.end end date (ISO8601 time string)
-#' @param time.format time format
-#' @param time.zone time zone
-#' @param ncdf.folder folder with NetCDF files
-#' @param coord.x x coordinate
-#' @param coord.y y coordinate
-#' @export
-Application.getTimeSeriesForCoord <- function(radolan.type,
-                                              time.start,
-                                              time.end,
-                                              time.format = "%Y-%m-%d %H:%M:%S",
-                                              time.zone = "UTC",
-                                              ncdf.folder = "/ncdf",
-                                              coord.x,
-                                              coord.y) {
-  
-  #get coord index
-  coord.index <- Utility.getRADOLANIndexFromCoord(coord.x, coord.y)
-  
-  return(Application.getTimeSeriesForBounds(radolan.type, time.start, time.end, time.format, time.zone, ncdf.folder, coord.indices=coord.index))
-  
-}
-
-
-#' Read single timeseries from RADOLAN
-#'
-#' @param radolan.type RADOLAN type
-#' @param time.start start date (ISO8601 time string)
-#' @param time.end end date (ISO8601 time string)
-#' @param time.format time format
-#' @param time.zone time zone
-#' @param ncdf.folder folder with NetCDF files
-#' @param coord.indices coordinate bounds as list of x,y indices (list(c(x1,x2,...), c(y1,y2,...)))
-#' @param fun named functions list to be applied to requested value subset, can be used to define weight matrix for requested subset (same size as subset defined by coord.indices)
+#' @param t.start start date
+#' @param t.end end date
+#' @param t.format time format, required if t.start and/or t.end are not given as POSIXct
+#' @param t.zone time zone, required if t.format is applied
+#' @param extent extent or polygon for which statistics are calculated; if -1, statistics are calculated for the whole extent
 #' @return timeseries for requested RADOLAN product, coordinate and timeframe
 #' @export
-Application.getTimeSeriesForBounds <- function(radolan.type,
-                                               time.start,
-                                               time.end,
-                                               time.format = "%Y-%m-%d %H:%M:%S",
-                                               time.zone = "UTC",
-                                               ncdf.folder = "/ncdf",
-                                               coord.indices,
-                                               fun = list(mean=mean)) {
+#' 
+x.app.radolan.timeseries <- function(ncdf.folder,
+                                     radolan.type = "RW",
+                                     t.start,
+                                     t.end,
+                                     t.format = "%Y-%m-%d %H:%M:%S",
+                                     t.zone = "UTC",
+                                     extent = -1) {
   
-  #get start/end time index
-  time.start <- as.POSIXct(time.start, format=time.format, tz=time.zone)
-  time.end <- as.POSIXct(time.end, format=time.format, tz=time.zone)
+  if(missing(ncdf.folder))
+    stop("Need to specify NetCDF folder.")
+  
+  if(missing(radolan.type))
+    stop("Need to specify RADOLAN type.")
+  
+  if(missing(t.start))
+    stop("Need to specify start timestamp.")
+  
+  if(missing(t.end))
+    stop("Need to specify end timestamp.")
+  
+  #set start/end time as POSIXct
+  if(!"POSIXct" %in% class(t.start))
+    t.start <- as.POSIXct(t.start, format=t.format, tz=t.zone)
+  if(!"POSIXct" %in% class(t.end))
+    t.end <- as.POSIXct(t.end, format=t.format, tz=t.zone)
   
   #get target year(s)
-  years <- format(time.start, "%Y") : format(time.end, "%Y")
+  years <- format(t.start, "%Y") : format(t.end, "%Y")
+  
+  #set timestamp to numeric (as stored in NetCDF)
+  timestamp <- as.double(c(t.start, t.end))
   
   #set NetCDF file(s)
   ncdf.files = list()
@@ -60,22 +48,22 @@ Application.getTimeSeriesForBounds <- function(radolan.type,
     ncdf.files[as.character(year)] <- paste0(ncdf.folder, "/radolan", radolan.type, "-", year, ".nc")
   }
   
-  #read timeseries for each year
-  timeseries <- data.frame(timestamp=integer(), value=numeric())
+  #init timeseries dataframe
+  timeseries <- data.frame()
   
   for(year in years){
     
     #determine, if full year needs to be requested
-    full.year <- ifelse(year == min(years) || year == max(years), F, T)
+    full.year <- if(year == min(years) || year == max(years)) FALSE else TRUE
     
     #open NetCDF file
-    ncdf <- Radolan2Ncdf.openFile(ncdf.files[[as.character(year)]])
+    ncdf <- x.ncdf.open(ncdf.files[[as.character(year)]])
     
-    #get timeseries for selected year
-    timeseries <- rbind(timeseries, Application.getTimeSeriesFromNetCDF(ncdf, full.year=full.year, time.start=time.start, time.end=time.end, coord.indices=coord.indices, fun=fun))
+    #get timeseries from NetCDF
+    timeseries <- rbind(timeseries, x.ncdf.subset(ncdf, extent=extent, timestamp=timestamp, statistics=T))
     
     #close NetCDF file
-    Radolan2Ncdf.closeFile(ncdf)
+    x.ncdf.close(ncdf)
     
   }
   
@@ -85,103 +73,76 @@ Application.getTimeSeriesForBounds <- function(radolan.type,
 }
 
 
-#' Read timeseries stats from NetCDF
+#' Read single raster from RADOLAN NetCDF file
 #'
-#' @param ncdf NetCDF file pointer
-#' @param full.year flag: read full year; if true, start and end date are ignored
-#' @param time.start start date
-#' @param time.end end date
-#' @param coord.indices coordinate bounds as list of x,y indices (list(c(x1,x2,...), c(y1,y2,...)))
-#' @param fun named functions list to be applied to requested value subset, can be used to define weight matrix for requested subset (same size as subset defined by coord.indices)
-Application.getTimeSeriesFromNetCDF <- function(ncdf,
-                                                full.year = F,
-                                                time.start,
-                                                time.end,
-                                                coord.indices,
-                                                fun){
-  
-  #determine start and end indices
-  timestamps <- ncdf$dim$t$vals
-  if(full.year){
-    t.index.start <- 1
-  }
-  else {
-    t.index.start <- which(timestamps == Utility.getClosest(timestamps, time.start, direction="leq"))
-    t.index.end <- which(timestamps == Utility.getClosest(timestamps, time.end, direction="geq"))
-    timestamps <- timestamps[t.index.start : t.index.end]
-  }
-  
-  #request NetCDF subset
-  subset <- Radolan2Ncdf.requestSubset(ncdf, start=c(min(coord.indices$col), min(coord.indices$row), t.index.start), count=c(length(coord.indices$col), length(coord.indices$row), ifelse(full.year, -1, length(timestamps))), tIndex = T)
-  
-  #init final dataframe with timestamps
-  subset.df <- data.frame(timestamp=timestamps)
-  
-  #calculate aggregate values, based on provided functions
-  for(f in names(fun)){
-    subset.df[f] <- apply(subset, 3, fun[[f]])
-  }
-  
-  return(subset.df)
-  
-}
-
-
-#' Read timeseries stats from RADOLAN for single polygon 
-#'
+#' @param ncdf.folder folder with NetCDF files (files must follow naming convention radolan%%radolan.type%%-%%year%%)
 #' @param radolan.type RADOLAN type
-#' @param time.start start date (ISO8601 time string)
-#' @param time.end end date (ISO8601 time string)
-#' @param time.format time format
-#' @param time.zone time zone
-#' @param polygon polygon for zonal stats
+#' @param timestamp timestamp to be requested
+#' @param t.format time format, required if t.start and/or t.end are not given as POSIXct
+#' @param t.zone time zone, required if t.format is applied
+#' @return RADOLAN image for requested timestamp or stack of 2 images, if timestamp lies in between provision timestamps
 #' @export
-Application.getTimeSeriesForPolygon <- function(radolan.type,
-                                                time.start,
-                                                time.end,
-                                                time.format = "%Y-%m-%d %H:%M:%S",
-                                                time.zone = "UTC",
-                                                ncdf.folder = "/ncdf",
-                                                polygon) {
+#' 
+x.app.radolan.raster <-  function(ncdf.folder,
+                                  radolan.type,
+                                  timestamp,
+                                  t.format = "%Y-%m-%d %H:%M:%S",
+                                  t.zone = "UTC") {
   
-  #get indices and corresponding weights for polygon
-  coord.indices <- Utility.getRADOLANIndicesForPolygon(polygon)
+  if(missing(ncdf.folder))
+    stop("Need to specify NetCDF folder.")
   
-  #get area of polygon, requires transformation to get geodesic area
-  polygon.area <- raster::area(sp::spTransform(polygon, CRS('+init=EPSG:4326'))) / 1000000
+  if(missing(radolan.type))
+    stop("Need to specify RADOLAN type.")
   
-  #init weight function to extract mean precipitation
-  fun <- list(
-    mean = function(x, weights=coord.indices$weights) { return(sum(x * weights)) },
-    max = function(x, weights=coord.indices$weights) { return(max(x[weights > 0])) },
-    min = function(x, weights=coord.indices$weights) { return(min(x[weights > 0])) },
-    sum = function(x, weights=coord.indices$weights, area=polygon.area) { return(sum(x * weights) * area) }
-  )
+  if(missing(timestamp))
+    stop("Need to specify timestamp.")
   
-  #get time series
-  timeseries <- Application.getTimeSeriesForBounds(radolan.type=radolan.type, time.start=time.start, time.end=time.end, time.format=time.format, time.zone=time.zone, ncdf.folder=ncdf.folder, coord.indices=coord.indices, fun=fun)
-  return(timeseries)
+  #set timestamp as POSIXct
+  if(!"POSIXct" %in% class(timestamp))
+    timestamp <- as.POSIXct(timestamp, format=t.format, tz=t.zone)
   
+  #get target year
+  year <- format(timestamp, "%Y")
+  
+  #set file
+  ncdf.file <- paste0(ncdf.folder, "/radolan", radolan.type, "-", year, ".nc")
+  
+  #set timestamp to numeric (as stored in NetCDF)
+  timestamp <- as.double(timestamp)
+  
+  #open NetCDF file
+  ncdf <- x.ncdf.open(ncdf.file)
+ 
+  #get RADOLAN image
+  raster <- x.ncdf.subset(ncdf, extent=-1, timestamp=timestamp, as.raster=T) 
+  
+  #close NetCDF file
+  x.ncdf.close(ncdf)
+  
+  return(raster)
+   
 }
 
 
 #' Get upstream catchments
 #'
 #' @param catchments input catchments
-#' @param graph input graph
-#' @param name catchment identifier
-#' @param geometry flag: get catchment geometry; of false, a list of identifiers is returned
+#' @param c.graph input catchment graph
+#' @param c.id start catchment identifier
+#' @param geometry flag: get catchment geometry; if false, a list of identifiers is returned
 #' @param dissolve flag: dissolve geometry; only required if geometry == T
 #' @return list of upstream catchment identifiers or catchment geometries
 #' @export
-Application.getUpstreamCatchments <- function(catchments = xtruso::xtruso.catchments,
-                                              graph = xtruso::xtruso.catchments.graph,
-                                              name,
-                                              geometry = F,
-                                              dissolve = F) {
+#' 
+x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
+                                     c.graph = xtruso::xtruso.catchments.graph,
+                                     c.id,
+                                     geometry = F,
+                                     dissolve = F) {
   
   #get upstream graph
-  upstream <- CatchmentGraph.getUpstream(graph, name)
+  upstream <- x.graph.neighborhood.out(c.graph, c.id)
   
   #get list of upstream catchments
   upstream.ids <- igraph::V(upstream)$name
@@ -191,7 +152,7 @@ Application.getUpstreamCatchments <- function(catchments = xtruso::xtruso.catchm
     return(upstream.ids)
   
   #get source catchment
-  catchment <- catchments[catchments@data$GKZNR == name, ]
+  catchment <- catchments[catchments@data$GKZNR == c.id, ]
   
   #get geometry for identifiers
   upstream.selection <- catchments[catchments@data$GKZNR %in% upstream.ids, ]
@@ -211,56 +172,29 @@ Application.getUpstreamCatchments <- function(catchments = xtruso::xtruso.catchm
 }
 
 
-# radolan.type <- "RW"
-# time.start <- "2016-01-01 12:00:00"
-# time.end <- "2016-04-01 00:00:00"
-# time.format = "%Y-%m-%d %H:%M:%S"
-# time.zone = "UTC"
-# coord.x <- 114
-# coord.y <- -4000
-
-
-# path and file name, set dname
-# for(y in 2010:2014){
-# 
-#   message(paste0("--- NetCDF y = ", y, " ---"))
-# 
-#   ncdf.filepath <- paste0("D:/Geodaten/RADOLAN/NetCDF/radolanRW",y,".nc")
-#   radolan.folder <- paste0("D:/Geodaten/RADOLAN/DWD_Downloads/RW/",y)
-#   radolan.type <- "RW"
-# 
-#   time <- Sys.time()
-#   Radolan2Ncdf(ncdf.filepath, radolan.folder, radolan.type, compression = 3)
-# 
-#   message(paste0("RUNTIME: ", difftime(Sys.time(), time, units = "mins")))
-# 
-# }
-# 
-# 
-# test <- Radolan2Ncdf.openFile(ncdf.filepath)
-# raster <- Radolan2Ncdf.requestImage(test, timestamp=1452977400)
-# 
-# for(i in 1:5){
-#   time <- Sys.time()
-#   subset <- Radolan2Ncdf.requestSubset(test, start=c(500,500,1452977400), count=c(i,i,-1))
-#   message(difftime(Sys.time(), time, units = "secs"))
-# }
-# 
-# 
-# test <- Radolan2Ncdf.openFile("D:/Geodaten/RADOLAN/NetCDF/radolanRW2016.nc")
-# 
-# time <- Sys.time()
-# subset <- Radolan2Ncdf.requestSubset(test, start=c(500,500,1), count=c(1,1,-1))
-# runtime1 <- Sys.time() - time
-# 
-# time <- Sys.time()
-# raster <- Radolan2Ncdf.requestImage(test, timestamp=1452973800)
-# runtime2 <- Sys.time() - time
-# 
-# Radolan2Ncdf.closeFile(test)
-# 
-# 
-# 
-#rw <- ReadRadolan("https://opendata.dwd.de/weather/radar/radolan/rw", "RW")
-#sf <- ReadRadolan("https://opendata.dwd.de/weather/radar/radolan/sf", "SF")
-#rx <- ReadRadolan("https://opendata.dwd.de/weather/radar/composit/rx", "RX")
+#' Get RADOLAN timeseries for upstream catchment
+#'
+#' @param c.id start catchment identifier
+#' @return RADOLAN RW timeseries for upstream catchment
+#' @export
+#' 
+x.app.catchment.radolan <- function(c.id,
+                                    radolan.type = "RW",
+                                    t.start = "2006-01-01 00:00:00",
+                                    t.end = "2017-12-31 23:59:00",
+                                    inf.rm = T) {
+  
+  #get catchment area
+  area <- x.app.catchment.upstream(c.id=c.id, geometry=T, dissolve=T)
+  
+  #get timeseries
+  ts <- x.app.radolan.timeseries(ncdf.folder, radolan.type=radolan.type, t.start=t.start, t.end=t.end, extent=area)
+  
+  #mark and if requested remove lines with min = Inf (== no values in RADOLAN image)
+  ts.inf <- ts[is.infinite(ts$min), ]
+  if(nrow(ts.inf) > 0) warning(paste0("For ", nrow(ts.inf), " timestamps there are no values available."))
+  if(inf.rm) ts <- ts[is.finite(ts$min), ]
+  
+  return(ts)
+  
+}

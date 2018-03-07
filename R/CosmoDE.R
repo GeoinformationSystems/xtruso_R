@@ -10,12 +10,12 @@
 #' @param prediction single or vector of COSMO DE prediction intervals, in hours (0 - 45)
 #' @return COSMO DE raster
 #' @export
-ReadCosmoDE <- function(cosmo.root,
-                        cosmo.parameter,
-                        timestamp = "latest",
-                        previous = FALSE,
-                        previous.break = 5,
-                        prediction = 27) {
+x.cosmode.get <- function(cosmo.root,
+                          cosmo.parameter,
+                          timestamp = "latest",
+                          previous = FALSE,
+                          previous.break = 5,
+                          prediction = 27) {
 
   if(missing(cosmo.root))
     stop("Need to specify path to COSMO DE root folder or URL.")
@@ -39,39 +39,14 @@ ReadCosmoDE <- function(cosmo.root,
   if(timestamp$hour != 3 && any(prediction %in% 28:45))
     stop("COSMO DE prediction for hour != 3 must be within interval 0:27.")
 
-  #get raster / raster stack
-  cosmo.raster <- ReadCosmoDE.getRaster(cosmo.root, timestamp, configuration, previous, previous.break, prediction)
-
-  #return
-  return(cosmo.raster)
-
-}
-
-
-#' Get COSMO DE raster that matches the defined timestamp
-#'
-#' @param radolan.root root path, where COSMO DE images are stored
-#' @param timestamp requested timestamp for the COSMO DE raster
-#' @param configuration COSMO DE configuration
-#' @param previous if a timestamp is not available, check previous timestamps according to the respective COSMO DE interval
-#' @param previous.break number of previous timestamps to be checked
-#' @param prediction COSMO DE prediction in hours (0 - 27)
-#' @return RADOLAN raster object
-ReadCosmoDE.getRaster <- function(cosmo.root,
-                                  timestamp,
-                                  configuration,
-                                  previous,
-                                  previous.break,
-                                  prediction) {
-
   cosmo.raster <- NULL
   previous.step = 0
-
+  
   while(is.null(cosmo.raster) && previous.step <= previous.break){
-
+    
     #get path for COSMO DE raster
-    cosmo.path <- ReadCosmoDE.getPath(cosmo.root, timestamp, configuration, prediction[1])
-
+    cosmo.path <- x.cosmode.path(cosmo.root, timestamp, configuration, prediction[1])
+    
     #try to read COSMO DE raster from root
     cosmo.raster <- ReadCosmoDEGrib(cosmo.path)
     if(is.null(cosmo.raster)){
@@ -79,30 +54,30 @@ ReadCosmoDE.getRaster <- function(cosmo.root,
       previous.step <- previous.step + 1
     }
   }
-
+  
   if(is.null(cosmo.raster))
     stop("Could not read a requested COSMO DE raster.")
-
+  
   #return single raster, if length(prediction) == 1
   if(length(prediction) == 1){
     cosmo.raster@title <- paste(configuration$parameter, timestamp, prediction, sep=" - ")
     return(cosmo.raster)
   }
-
+  
   #init stack
   cosmo.raster@title <- paste(configuration$parameter, timestamp, prediction[1], sep=" - ")
   cosmo.stack <- stack(cosmo.raster)
-
+  
   #read full stack
   for(i in prediction[prediction != prediction[1]]){
-    cosmo.path <- ReadCosmoDE.getPath(cosmo.root, timestamp, configuration, i)
+    cosmo.path <- x.cosmode.path(cosmo.root, timestamp, configuration, i)
     cosmo.raster <- ReadCosmoDEGrib(cosmo.path)
     if(!(is.null(cosmo.raster))){
       cosmo.raster@title <- paste(configuration$parameter, timestamp, i, sep=" - ")
       cosmo.stack <- addLayer(cosmo.stack, cosmo.raster)
     }
   }
-
+  
   #return stack
   return(cosmo.stack)
 
@@ -115,7 +90,7 @@ ReadCosmoDE.getRaster <- function(cosmo.root,
 #' @param timestamp requested timestamp for the COSMO DE image
 #' @param configuration COSMO DE configuration
 #' @return proper COSMO DE path
-ReadCosmoDE.getPath <- function(cosmo.root,
+x.cosmode.path <- function(cosmo.root,
                                 timestamp,
                                 configuration,
                                 prediction){
@@ -141,7 +116,7 @@ ReadCosmoDE.getPath <- function(cosmo.root,
 #' @param cosmo.path path to COSMO DE file
 #' @return COSMO DE raster
 #' @export
-ReadCosmoDEGrib <- function(cosmo.path){
+x.cosmode.read <- function(cosmo.path){
 
   download <- FALSE
 

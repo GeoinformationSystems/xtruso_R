@@ -3,5 +3,5 @@ xtruso.catchments <- rgdal::readOGR("data-raw/xtruso-catchments.json", "OGRGeoJS
 devtools::use_data(xtruso.catchments, overwrite=T)
 
 #generate catchment graph
-xtruso.catchments.graph <- CatchmentGraph.initGraph(xtruso.catchments, "GKZNR", "GKZ_NEXT", -1)
+xtruso.catchments.graph <- x.graph.init(xtruso.catchments@data, "GKZNR", colname.conn.out="GKZ_NEXT", conn.none = -1)
 devtools::use_data(xtruso.catchments.graph, overwrite=T)

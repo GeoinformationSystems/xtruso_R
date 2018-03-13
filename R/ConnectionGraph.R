@@ -56,7 +56,7 @@ x.graph.init <- function(data,
   
   #set first column in data to col.id
   if(names(data)[1] != colname.id){
-    idx = which(names(data) == col.id)
+    idx = which(names(data) == colname.id)
     data <- data[, c(idx, setdiff(1:ncol(data), idx))]
   }
     
@@ -108,20 +108,23 @@ x.graph.vertex <- function(graph,
 #' @param graph input graph 
 #' @param name input vertex identifier
 #' @param order max vertex order
-#' @param mode igraph search direction
+#' @param mode igraph search direction c("all", "out", "in")
 #' @return neighborhood graph for input vertex neighborhood
 #' @export
 #' 
 x.graph.neighborhood <- function(graph,
                                  name,
                                  order = igraph::vcount(graph),
-                                 mode = c("all", "out", "in")) {
+                                 mode = "all") {
   
   if(missing(graph))
     stop("Need to specify input graph.")
   
   if(missing(name))
     stop("Need to specify input vertex identifier")
+  
+  if(!mode %in% c("all", "out", "in"))
+    stop("Need to specify valid mode (all, out or in)")
   
   #get vertex
   vertex <- x.graph.vertex(graph, name)

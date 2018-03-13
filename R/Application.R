@@ -142,7 +142,7 @@ x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
                                      dissolve = F) {
   
   #get upstream graph
-  upstream <- x.graph.neighborhood.out(c.graph, c.id)
+  upstream <- x.graph.neighborhood.in(c.graph, c.id)
   
   #get list of upstream catchments
   upstream.ids <- igraph::V(upstream)$name

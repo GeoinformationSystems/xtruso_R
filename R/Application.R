@@ -113,7 +113,7 @@ x.app.radolan.raster <-  function(ncdf.folder,
   
   #open NetCDF file
   ncdf <- x.ncdf.open(ncdf.file)
- 
+  
   #get RADOLAN image
   raster <- x.ncdf.subset(ncdf, extent=-1, timestamp=timestamp, as.raster=T) 
   
@@ -121,7 +121,7 @@ x.app.radolan.raster <-  function(ncdf.folder,
   x.ncdf.close(ncdf)
   
   return(raster)
-   
+  
 }
 
 
@@ -130,6 +130,8 @@ x.app.radolan.raster <-  function(ncdf.folder,
 #' @param catchments input catchments
 #' @param c.graph input catchment graph
 #' @param c.id start catchment identifier
+#' @param c.x x coordinate of start location, used to identify c.id if not set
+#' @param c.y y coordinate of start location, used to identify c.id if not set
 #' @param geometry flag: get catchment geometry; if false, a list of identifiers is returned
 #' @param dissolve flag: dissolve geometry; only required if geometry == T
 #' @return list of upstream catchment identifiers or catchment geometries
@@ -138,14 +140,26 @@ x.app.radolan.raster <-  function(ncdf.folder,
 x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
                                      c.graph = xtruso::xtruso.catchments.graph,
                                      c.id,
+                                     c.x = NA,
+                                     c.y = NA,
                                      geometry = F,
-                                     dissolve = F) {
+                                     dissolve = F,
+                                     as.json = F) {
+  
+  #set catchment id
+  if(missing(c.id)){
+    if(missing(c.x) || missing(c.y)) stop("Must specify catchment id or location with c.x and c.y")
+    
+    #select catchment (assumes same CRS) and set c.id
+    c.id <- sp::over(SpatialPoints(cbind(c.x, c.y), proj4string=crs(catchments)), catchments)$GKZNR
+    if(is.na(c.id)) stop("No catchment found for provided location")
+  }
   
   #get upstream graph
-  upstream <- x.graph.neighborhood.in(c.graph, c.id)
+  upstream <- x.graph.neighborhood.in(c.graph, as.numeric(c.id))
   
   #get list of upstream catchments
-  upstream.ids <- igraph::V(upstream)$name
+  upstream.ids <- as.numeric(igraph::V(upstream)$name)
   
   #return, if geometry == F
   if(!geometry)
@@ -156,16 +170,38 @@ x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
   
   #get geometry for identifiers
   upstream.selection <- catchments[catchments@data$GKZNR %in% upstream.ids, ]
+  area <- sum(upstream.selection@data$Area_sqkm)
   
-  #return geometries, if dissolve == F
-  if(!dissolve)
-    return(upstream.selection)
+  #dissolve
+  if(dissolve){
+    
+    #aggregate polygons
+    upstream.selection <- stats::aggregate(upstream.selection, FUN=function(x){return(NA)})
+    
+    #reset data
+    upstream.selection@data <- data.frame(
+      id = catchment@data$GKZNR,
+      initial_GKZ = catchment@data$GKZ,
+      area_sqkm = area)
+    
+  }
   
-  #aggregate polygons
-  upstream.selection <- stats::aggregate(upstream.selection, FUN=function(x){return(NA)})
-  
-  #set attributes from initial catchment
-  upstream.selection@data <- catchment@data
+  #convert to json
+  if(as.json){
+    
+    #create temp file
+    temp <- tempfile()
+    
+    #write GeoJSON
+    writeOGR(upstream.selection, temp, layer="geojson", driver="GeoJSON")
+    
+    #read JSON file
+    upstream.selection <- paste(readLines(temp), collapse=" ")
+    
+    #remove temp file
+    file.remove(temp)
+    
+  }
   
   return(upstream.selection)
   

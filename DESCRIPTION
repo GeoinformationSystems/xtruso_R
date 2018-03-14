@@ -19,4 +19,5 @@ Suggests:
   scidb,
   ncdf4,
   R.utils,
-  igraph
+  igraph,
+  rgeos

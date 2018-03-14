@@ -95,7 +95,7 @@ x.graph.vertex <- function(graph,
                            name) {
   
   #get index for requested vertex name
-  ids <- if(class(name) == 'numeric') which(as.numeric(igraph::V(graph)$name) == name) else which(igraph::V(graph)$name == name)
+  idx <- if(class(name) == 'numeric') which(as.numeric(igraph::V(graph)$name) == name) else which(igraph::V(graph)$name == name)
   
   #retrieve vertex by index
   return(igraph::V(graph)[idx])

@@ -211,6 +211,9 @@ x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
 #' Get RADOLAN timeseries for upstream catchment
 #'
 #' @param c.id start catchment identifier
+#' @param t.start first timestamp
+#' @param t.end last timestamp
+#' @param inf.rm flag: remove undefined measurements
 #' @return RADOLAN RW timeseries for upstream catchment
 #' @export
 #' 
@@ -232,5 +235,36 @@ x.app.catchment.radolan <- function(c.id,
   if(inf.rm) ts <- ts[is.finite(ts$min), ]
   
   return(ts)
+  
+}
+
+
+#' Get discharge timeseries for selecte station id
+#'
+#' @param s.id station identifier
+#' @param t.start first timestamp
+#' @param t.end last timestamp
+#' @param hwims.authentication valid HWIMS authentication (list(user="username", pass="password"))
+#' @return discharge timeseries for selected station
+#' @export
+#' 
+x.app.station.dc <- function(s.id,
+                             t.start = "2006-01-01 00:00:00",
+                             t.end = "2017-12-31 23:59:00",
+                             t.format = "%Y-%m-%d %H:%M:%S",
+                             t.zone = "UTC",
+                             hwims.authentication) {
+  
+  # check, if station exists
+  if(!s.id %in% xtruso::xtruso.stations.catchment$PEG_MSTNR)
+    stop(paste0("Station ", s.id, " is not available"))
+  
+  # set timestamps as POSIXct
+  if(!"POSIXct" %in% class(t.start))
+    t.start <- as.POSIXct(t.start, format=t.format, tz=t.zone)
+  if(!"POSIXct" %in% class(t.end))
+    t.end <- as.POSIXct(t.end, format=t.format, tz=t.zone)
+  
+  df.measurements <- x.hwims.get(xtruso::hwims.configuration$Q_1h, s.id, t.start, t.end, hwims.authentication)
   
 }

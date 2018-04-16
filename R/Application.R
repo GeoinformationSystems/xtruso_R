@@ -10,25 +10,37 @@
 #' @return timeseries for requested RADOLAN product, coordinate and timeframe
 #' @export
 #' 
-x.app.radolan.timeseries <- function(ncdf.folder,
+x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
                                      radolan.type = "RW",
                                      t.start,
                                      t.end,
                                      t.format = "%Y-%m-%d %H:%M:%S",
                                      t.zone = "UTC",
-                                     extent = -1) {
-  
-  if(missing(ncdf.folder))
-    stop("Need to specify NetCDF folder.")
-  
-  if(missing(radolan.type))
-    stop("Need to specify RADOLAN type.")
+                                     extent = -1,
+                                     proj = CRS("+init=epsg:3857")) {
   
   if(missing(t.start))
     stop("Need to specify start timestamp.")
   
   if(missing(t.end))
     stop("Need to specify end timestamp.")
+  
+  #try to parse GeoJSON
+  if(typeof(extent) == 'character'){
+    
+    #create temp file
+    temp <- tempfile(fileext=".json")
+    
+    #write extent to file
+    writeLines(extent, temp)
+    
+    #read JSON file
+    extent <- rgdal::readOGR(temp, p4s=as.character(proj))
+    
+    #remove temp file
+    file.remove(temp)
+    
+  }
   
   #set start/end time as POSIXct
   if(!"POSIXct" %in% class(t.start))
@@ -52,6 +64,10 @@ x.app.radolan.timeseries <- function(ncdf.folder,
   timeseries <- data.frame()
   
   for(year in years){
+    
+    #next, if file does not exist
+    if(!file.exists(ncdf.files[[as.character(year)]]))
+      next
     
     #determine, if full year needs to be requested
     full.year <- if(year == min(years) || year == max(years)) FALSE else TRUE
@@ -125,6 +141,7 @@ x.app.radolan.raster <-  function(ncdf.folder,
 }
 
 
+#' 
 #' Get upstream catchments
 #'
 #' @param catchments input catchments
@@ -142,18 +159,14 @@ x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
                                      c.id,
                                      c.x = NA,
                                      c.y = NA,
+                                     station.id,
                                      geometry = F,
                                      dissolve = F,
                                      as.json = F) {
   
   #set catchment id
-  if(missing(c.id)){
-    if(missing(c.x) || missing(c.y)) stop("Must specify catchment id or location with c.x and c.y")
-    
-    #select catchment (assumes same CRS) and set c.id
-    c.id <- sp::over(SpatialPoints(cbind(c.x, c.y), proj4string=crs(catchments)), catchments)$GKZNR
-    if(is.na(c.id)) stop("No catchment found for provided location")
-  }
+  if(missing(c.id))
+    c.id <- x.app.catchment.id(catchments, station.id=station.id, c.x = c.x, c.y = c.y)
   
   #get upstream graph
   upstream <- x.graph.neighborhood.in(c.graph, as.numeric(c.id))
@@ -193,7 +206,7 @@ x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
     temp <- tempfile()
     
     #write GeoJSON
-    writeOGR(upstream.selection, temp, layer="geojson", driver="GeoJSON")
+    rgdal::writeOGR(upstream.selection, temp, layer="geojson", driver="GeoJSON")
     
     #read JSON file
     upstream.selection <- paste(readLines(temp), collapse=" ")
@@ -204,6 +217,35 @@ x.app.catchment.upstream <- function(catchments = xtruso::xtruso.catchments,
   }
   
   return(upstream.selection)
+  
+}
+
+
+#'
+#' Get catchment identifier by station id or coordinate
+#'
+#' @param catchments input catchments
+#' @param station.catchments mapping between station and catchment ids
+#' @param station.id station id
+#' @param c.x x coordinate of start location, only used if station.id is missing
+#' @param c.y y coordinate of start location, only used if station.id is missing
+#' @return catchment identifier
+#' @export
+#' 
+x.app.catchment.id <- function(catchments = xtruso::xtruso.catchments,
+                               station.catchments = xtruso::xtruso.stations.catchment,
+                               station.id,
+                               c.x = NA,
+                               c.y = NA) {
+  
+  #select catchment by coordinates (assumes same CRS) and set c.id
+  if(missing(station.id))
+    c.id <- sp::over(SpatialPoints(cbind(c.x, c.y), proj4string=crs(catchments)), catchments)$GKZNR
+  else
+    c.id <- station.catchments[station.catchments$PEG_MSTNR==station.id, "MIN_GKZNR"]
+  
+  if(is.na(c.id)) stop("No catchment found for provided station or location")
+  return(c.id)
   
 }
 

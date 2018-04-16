@@ -259,7 +259,8 @@ x.app.catchment.id <- function(catchments = xtruso::xtruso.catchments,
 #' @return RADOLAN RW timeseries for upstream catchment
 #' @export
 #' 
-x.app.catchment.radolan <- function(c.id,
+x.app.catchment.radolan <- function(ncdf.folder = "/ncdf",
+                                    c.id,
                                     radolan.type = "RW",
                                     t.start = "2006-01-01 00:00:00",
                                     t.end = "2017-12-31 23:59:00",

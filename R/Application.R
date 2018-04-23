@@ -296,6 +296,7 @@ x.app.station.dc <- function(s.id,
                              t.end = "2017-12-31 23:59:00",
                              t.format = "%Y-%m-%d %H:%M:%S",
                              t.zone = "UTC",
+                             hwims.configuration = xtruso::hwims.configuration$Q_1h,
                              hwims.authentication) {
   
   # check, if station exists
@@ -308,6 +309,6 @@ x.app.station.dc <- function(s.id,
   if(!"POSIXct" %in% class(t.end))
     t.end <- as.POSIXct(t.end, format=t.format, tz=t.zone)
   
-  df.measurements <- x.hwims.get(xtruso::hwims.configuration$Q_1h, s.id, t.start, t.end, hwims.authentication)
+  df.measurements <- x.hwims.get(hwims.configuration, s.id, t.start, t.end, hwims.authentication)
   
 }

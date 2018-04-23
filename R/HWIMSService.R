@@ -7,7 +7,11 @@
 #' @param hwims.authentication HWIMS BASIC HTML authentication (list("user" = ..., "pass" = ...))
 #' @return dataframe with measurements
 #' @export
-x.hwims.get <- function(hwims.configuration, station, t.start, t.end, hwims.authentication){
+x.hwims.get <- function(hwims.configuration, 
+                        station, 
+                        t.start, 
+                        t.end, 
+                        hwims.authentication){
   
   #subset, if interval is too large
   if(difftime(t.end, t.start, units=hwims.configuration[["interval.uom"]]) > hwims.configuration[["interval.max"]]) {
@@ -39,11 +43,11 @@ x.hwims.get <- function(hwims.configuration, station, t.start, t.end, hwims.auth
       if(xml2::xml_name(row) == "wert") {
         
         #get timestamp and ignore measurement, if already written
-        timestamp <- as.POSIXct(xml2::xml_text(xml2::xml_find_first(row, "zeitstempel")), tz="CET")
+        timestamp <- as.POSIXct(xml2::xml_text(xml2::xml_find_first(row, "zeitstempel")), format="%Y-%m-%dT%H:%M:%S")
         if(!timestamp %in% df.measurements$timestamp){
           value <- as.numeric(xml2::xml_text(xml2::xml_find_first(row, "wert")))
           status <- xml2::xml_text(xml2::xml_find_first(row, "status"))
-          return(data.frame(timestamp=timestamp, value=value, status=status))
+          return(data.frame(time=timestamp, timestamp=as.double(timestamp), value=value, status=status))
         }
         
       }

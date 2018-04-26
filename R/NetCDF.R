@@ -471,7 +471,7 @@ x.ncdf.subset.mask <- function(ncdf,
   subset <- x.ncdf.subset.xytv(ncdf, extent.ncdf, timestamp, extent.indices=T, t.index=t.index, ncdf.phen=ncdf.phen, as.raster=F)
   
   #init raster for zonal overlap computation
-  raster <- raster::raster(subset[,,1])
+  raster <- raster::raster(as.matrix(subset[,,1, drop=F]))
   raster <- raster::setExtent(raster, extent)
   raster::projection(raster) <- proj
   

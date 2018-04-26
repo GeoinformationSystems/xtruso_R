@@ -357,7 +357,11 @@ x.ncdf.subset.xytv <- function(ncdf,
   
   #first transpose then flip subset (horizontally) to get top-left from bottom-left corner
   subset <- aperm(subset, c(2,1,3))
+  subset.dim <- dim(subset)
   subset <- apply(subset, c(2,3), rev)
+  
+  #restore corrct dimension, if collapsed (if length = 1)
+  dim(subset) <- subset.dim
   
   #set dimension names (xy coordinates and timestamps)
   dimnames(subset)[[2]] <- as.list(ncdf$dim$x$vals[extent[1]:extent[2]])
@@ -471,7 +475,7 @@ x.ncdf.subset.mask <- function(ncdf,
   subset <- x.ncdf.subset.xytv(ncdf, extent.ncdf, timestamp, extent.indices=T, t.index=t.index, ncdf.phen=ncdf.phen, as.raster=F)
   
   #init raster for zonal overlap computation
-  raster <- raster::raster(as.matrix(subset[,,1, drop=F]))
+  raster <- raster::raster(as.matrix(subset[,,1], nrow=nrow(subset), ncol=ncol(subset)))
   raster <- raster::setExtent(raster, extent)
   raster::projection(raster) <- proj
   

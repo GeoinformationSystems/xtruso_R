@@ -90,7 +90,7 @@ x.ncdf.write <- function(ncdf,
                          ncdf.v,
                          raster,
                          t.value,
-                         t.index = 1) {
+                         t.index = length(ncdf$dim$t$vals) + 1) {
   
   if(missing(ncdf))
     stop("Need to specify a NetCDF file.")
@@ -138,9 +138,10 @@ x.ncdf.create <- function(ncdf.file,
 #' open NetCDF file
 #' @param ncdf.file NetCDF file
 #' @param write flag: NetCDF file is writable
+#' @param ncdf4.suppress_dimvals flag: read dimensional variables; must be TRUE, if NetCDF file is empty
 #' @export
 #' 
-x.ncdf.open <- function(ncdf.file, write=F) {
+x.ncdf.open <- function(ncdf.file, write=F, ncdf4.suppress_dimvals=F) {
   
   if(!"ncdf4" %in% installed.packages()[, "Package"])
     stop("Package ncdf4 is not installed.")
@@ -154,7 +155,7 @@ x.ncdf.open <- function(ncdf.file, write=F) {
   if(!file.exists(ncdf.file))
     stop("Need to specify an existing NetCDF file.")
   
-  return(ncdf4::nc_open(ncdf.file, write))
+  return(ncdf4::nc_open(ncdf.file, write, suppress_dimvals=ncdf4.suppress_dimvals))
   
 }
 
@@ -177,9 +178,9 @@ x.ncdf.close <- function(ncdf) {
 #'
 #' Write attribute to NetCDF file
 #' @param ncdf NetCDF file pointer
-#' @param var.id variable id(s) to write attributes (0 = global)
-#' @param name attribute name(s)
-#' @param value attribute value(s)
+#' @param var.id variable id to write attributes (0 = global)
+#' @param name attribute name
+#' @param value attribute value
 #' @export
 #' 
 x.ncdf.attribute.write <- function(ncdf,
@@ -193,6 +194,29 @@ x.ncdf.attribute.write <- function(ncdf,
   #write attribute to ncdf
   ncdf4::ncatt_put(ncdf, var.id, name, value)
   
+}
+
+
+#'
+#' get attribute from NetCDF file
+#' @param ncdf NetCDF file pointer
+#' @param var.id variable id for which attribute is retrieved (0 = global)
+#' @param name attribute name
+#' @return attribute value
+#' @export
+#' 
+x.ncdf.attribute.get <- function(ncdf,
+                                 var.id = 0,
+                                 name) {
+ 
+  if(missing(ncdf))
+    stop("Need to specify a NetCDF file.")
+  
+  if(missing(name))
+    stop("Need to specify an attribute name.")
+  
+  return(ncdf4::ncatt_get(ncdf, var.id, name))
+   
 }
 
 

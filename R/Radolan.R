@@ -3,7 +3,7 @@
 #' @param radolan.root root path, where RADOLAN images are stored (folder or URL)
 #' @param radolan.type RADOLAN product type
 #' @param timestamp requested timestamp for the RADOLAN image
-#' @param previous if a timestamp is not available, check previous timestamps according to the specified RADOLAN interval
+#' @param previous flag: if a timestamp is not available, check previous timestamps according to the specified RADOLAN interval
 #' @param previous.break number of previous timestamps to be checked, if previous = TRUE
 #' @param rm.flagged remove flagged pixels from RADOLAN raster (set to NA)
 #' @return requested RADOLAN raster
@@ -39,10 +39,16 @@ x.radolan.get <- function(radolan.root,
     
     #try to get RADOLAN raster from current path
     radolan.raster <- x.radolan.read(radolan.path, radolan.configuration, rm.flagged=rm.flagged)
+    
+    #break anyway, if previous = F
+    if(!previous) break
+    
+    #check for previous timestamps
     if(is.null(radolan.raster)){
       timestamp <- timestamp - radolan.configuration$time.interval
       previous.step <- previous.step + 1
     }
+    
   }
   
   if(is.null(radolan.raster))
@@ -113,7 +119,7 @@ x.radolan.read <- function(radolan.files,
     stop("Need to specify RADOLAN product configuration.")
   
   #set radolan file(s) for folder
-  radolan.files <- if(!any(startsWith(radolan.files, c("http://", "https://", "ftp://"))) && file.info(radolan.files)$isdir) {
+  radolan.files <- if(!any(startsWith(radolan.files, c("http://", "https://", "ftp://"))) && dir.exists(radolan.files)) {
     list.files(radolan.path, pattern=gsub("%%time%%", "(.*)", file.pattern), full.names=TRUE)
   } else radolan.files
   
@@ -537,9 +543,10 @@ x.radolan.disaggregate.row <- function(row,
 #' create NetCDF file for RADOLAN images
 #' @param ncdf.file NetCDF file path
 #' @param radolan.configuration configuration for RADOLAN files
-#' @param radolan.folder with RADOLAN files to write
+#' @param radolan.folder RADOLAN files to write
 #' @param chunksizes target chunksizes
 #' @param compression file compression
+#' @param close flag: close NetCDF file after creation
 #' @return NetCDF file pointer
 #' @export
 x.radolan.ncdf.create <- function(ncdf.file,
@@ -547,7 +554,7 @@ x.radolan.ncdf.create <- function(ncdf.file,
                                   radolan.folder = NA,
                                   chunksizes = NA,
                                   compression = NA,
-                                  close = !is.na(radolan.folder)) {
+                                  close = T) {
   
   if(missing(ncdf.file))
     stop("Need to specify a NetCDF file.")
@@ -582,7 +589,7 @@ x.radolan.ncdf.create <- function(ncdf.file,
   x.ncdf.attribute.write(ncdf, 0, "proj4_params", as.character(radolan.configuration$proj))
   x.ncdf.attribute.write(ncdf, 0, "RADOLAN_product", radolan.configuration$type)
   
-  #write raster in forlder
+  #write rasters from folder
   if(!is.na(radolan.folder)){
     
     #get all files from folder
@@ -603,8 +610,133 @@ x.radolan.ncdf.create <- function(ncdf.file,
     
   }
   
-  #close file if requested
+  #return file pointer
   if(close)
     x.ncdf.close(ncdf)
+  
+  return(ncdf)
+  
+}
+
+
+#'
+#' update NetCDF file with RADOLAN images
+#' @param ncdf.file NetCDF file path
+#' @param radolan.folder folder to search for RADOLAN images; if NA, images are retrived online
+#' @export
+#' 
+x.radolan.ncdf.update <- function(ncdf.file,
+                                  radolan.configuration,
+                                  radolan.folder = NA) {
+  
+  if(missing(ncdf.file))
+    stop("Need to specify a target NetCDF file.")
+  
+  #open NetCDF file or create new file, if it does not yet exist
+  if(!file.exists(ncdf.file)) {
+    ncdf <- x.radolan.ncdf.create(ncdf.file, radolan.configuration, chunksizes = c(20,20,100), compression = 3, close = F)
+  } else ncdf <- x.ncdf.open(ncdf.file, write = T)
+  
+  #get all timestamp from NetCDF, beginning of current year, if empty
+  t.all <- if(ncdf$dim$t$len > 0) as.POSIXct(ncdf$dim$t$vals, origin="1970-01-01", tz="UTC") else strptime(paste0(format(Sys.time(), "%Y"), "-01-01"), format="%Y-%m-%d", tz="UTC")
+  
+  #get all timestamps for the requested year
+  t.df <- x.radolan.timestamps(radolan.configuration, as.numeric(format(max(t.all), "%Y")))
+  
+  #filter timestamps to be updated
+  t.df <- t.df[!(t.df$timestamp %in% t.all) & t.df$timestamp <= Sys.time(), ]
+  
+  for(i in 1:nrow(t.df)) {
+    
+    #set row
+    row <- t.df[i, ]
+    
+    #get RADOLAN raster from folder (if specified) or online
+    if(!is.na(radolan.folder))
+      radolan.raster <- x.radolan.get(radolan.folder, radolan.configuration$type, timestamp = row[["timestamp"]])
+    
+    #if null, try to get RADOLAN raster online
+    if(is.null(radolan.raster))
+      radolan.raster <- x.radolan.get(radolan.configuration$dwd.root, radolan.configuration$type, timestamp = row[["timestamp"]])
+    
+    #write to NetCDF
+    if(!is.null(radolan.raster)) {
+      x.ncdf.write(ncdf, radolan.configuration$phenomenon, raster=radolan.raster, t.value = as.double(row[["timestamp"]]), t.index = row[["index"]])
+    } else 
+      warning(paste0("RADOLAN raster for ", row[["timestamp"]], " is NULL and was not written to NetCDF"))
+  }
+  
+  #close file
+  x.ncdf.close(ncdf)
+  
+}
+
+
+#'
+#' get RADOLAN timestamps with index
+#' @param radolan.configuration RADOLAN configuration
+#' @param year year
+#' @return timestamps with associated index
+#' @export
+#' 
+x.radolan.timestamps <- function(radolan.configuration,
+                                 year) {
+  
+  #set min and max timestamp
+  t.min <- strptime(gsub("%%year%%", year, radolan.configuration$time.firstOfYear), format="%Y-%m-%d %H:%M:%SZ", tz="UTC")
+  t.max <- strptime(paste0(year + 1, "-01-01"), format="%Y-%m-%d", tz="UTC") - 1
+  
+  #set number of steps
+  t.steps <- ceiling((as.double(t.max) - as.double(t.min)) / radolan.configuration$time.interval)
+  
+  #init dataframe
+  df <- data.frame(timestamp = seq(t.min, t.max, by=radolan.configuration$time.interval), index = 1:t.steps)
+  
+  return(df)
+  
+}
+
+
+#'
+#' get RADOLAN timestamp for index
+#' @param radolan.configuration RADOLAN configuration
+#' @param index timestamp index (index = 1 == t.first)
+#' @param year year
+#' @return timestamp associated with index
+#' @export
+#' 
+x.radolan.timestamp4index <- function(radolan.configuration,
+                                      index,
+                                      year) {
+  
+  #get first timestamp of target year
+  t.first <- strptime(gsub("%%year%%", year, radolan.configuration$time.firstOfYear), format="%Y-%m-%d %H:%M:%SZ")
+  
+  #get target timestamp
+  return(t.first + (index - 1) * radolan.configuration$time.interval)
+  
+}
+
+
+#'
+#' get RADOLAN index for timestamp
+#' @param radolan.configuration RADOLAN configuration
+#' @param timestamp timestamp
+#' @param year year
+#' @return index associated with timestamp
+#' @export
+#' 
+x.radolan.index4timestamp <- function(radolan.configuration,
+                                      timestamp,
+                                      year) {
+  
+  #get first timestamp of target year
+  t.first <- strptime(gsub("%%year%%", year, radolan.configuration$time.firstOfYear), format="%Y-%m-%d %H:%M:%SZ")
+  
+  #get offset
+  offset <- as.double(timestamp) - as.double(t.first)
+  
+  #get target timestamp
+  return(ifelse(offset %% radolan.configuration$time.interval == 0, offset / radolan.configuration$time.interval , NA))
   
 }

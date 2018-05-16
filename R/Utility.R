@@ -54,7 +54,7 @@ x.utility.time.intervals <- function(t.start,
                                      t.end, 
                                      interval, 
                                      interval.uom, 
-                                     interval.cut = FALSE) {
+                                     interval.cut = TRUE) {
   
   df.intervals <- data.frame()
   t.tmp <- t.start

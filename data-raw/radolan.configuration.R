@@ -13,12 +13,14 @@ radolan.configuration.create = function(type,
                                         convert.to.dBZ,
                                         precision,
                                         max.value,
+                                        time.firstOfYear,
                                         time.latest,
                                         time.interval,
                                         file.pattern,
                                         zip.pattern = NA,
                                         phenomenon,
-                                        uom) {
+                                        uom,
+                                        dwd.root) {
 
   return(list("type" = type,
               "ncol" = 900,
@@ -29,13 +31,15 @@ radolan.configuration.create = function(type,
               "convert.to.dBZ" = convert.to.dBZ,
               "precision" = precision,
               "max.value" = max.value,
+              "time.firstOfYear" = time.firstOfYear,
               "time.latest" = time.latest,
               "time.interval" = time.interval,
               "time.format" = radolan.configuration.time.format,
               "file.pattern" = file.pattern,
               "zip.pattern" = zip.pattern,
               "phenomenon" = phenomenon,
-              "uom" = uom))
+              "uom" = uom,
+              "dwd.root" = dwd.root))
 
 }
 
@@ -45,6 +49,7 @@ radolan.configuration[["SF"]] <- radolan.configuration.create(type = "SF",
                                                               convert.to.dBZ = FALSE,
                                                               precision = 0.1,
                                                               max.value = 4095,
+                                                              time.firstOfYear = "%%year%%-01-01 00:50:00Z",
                                                               time.latest = "
                                                                   latest <- as.POSIXlt(Sys.time(), \"UTC\")
                                                                   latest <- strptime(paste(format(latest, \"%y%m%d%H\"), \"50\", sep=\"\"), \"%y%m%d%H%M\", \"UTC\")
@@ -53,13 +58,15 @@ radolan.configuration[["SF"]] <- radolan.configuration.create(type = "SF",
                                                               time.interval = 3600,
                                                               file.pattern = "raa01-sf_10000-%%time%%-dwd---bin",
                                                               phenomenon = "precipitation",
-                                                              uom = "mm/sqm")
+                                                              uom = "mm/sqm",
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/radolan/sf/")
 
 radolan.configuration[["RW"]] <- radolan.configuration.create(type = "RW",
                                                               bits = 2,
                                                               convert.to.dBZ = FALSE,
                                                               precision = 0.1,
                                                               max.value = 4095,
+                                                              time.firstOfYear = "%%year%%-01-01 00:50:00Z",
                                                               time.latest = "
                                                                   latest <- as.POSIXlt(Sys.time(), \"UTC\")
                                                                   latest <- strptime(paste(format(latest, \"%y%m%d%H\"), \"50\", sep=\"\"), \"%y%m%d%H%M\", \"UTC\")
@@ -68,7 +75,8 @@ radolan.configuration[["RW"]] <- radolan.configuration.create(type = "RW",
                                                               time.interval = 3600,
                                                               file.pattern = "raa01-rw_10000-%%time%%-dwd---bin",
                                                               phenomenon = "precipitation",
-                                                              uom = "mm/sqm")
+                                                              uom = "mm/sqm",
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/radolan/rw/")
 
 
 radolan.configuration[["RX"]] <- radolan.configuration.create(type = "RX",
@@ -76,6 +84,7 @@ radolan.configuration[["RX"]] <- radolan.configuration.create(type = "RX",
                                                               convert.to.dBZ = TRUE,
                                                               precision = 1,
                                                               max.value = 248,
+                                                              time.firstOfYear = "%%year%%-01-01 00:00:00Z",
                                                               time.latest = "
                                                                   latest <- as.POSIXlt(Sys.time(), \"UTC\")
                                                                   latest$min <- latest$min %/% 5 * 5
@@ -84,7 +93,8 @@ radolan.configuration[["RX"]] <- radolan.configuration.create(type = "RX",
                                                               time.interval = 300,
                                                               file.pattern = "raa01-rx_10000-%%time%%-dwd---bin",
                                                               phenomenon = "reflectivity",
-                                                              uom = "dbZ")
+                                                              uom = "dbZ",
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/composit/rx/")
 
 
 radolan.configuration[["FX"]] <- radolan.configuration.create(type = "FX",
@@ -92,6 +102,7 @@ radolan.configuration[["FX"]] <- radolan.configuration.create(type = "FX",
                                                               convert.to.dBZ = TRUE,
                                                               precision = 0.1,
                                                               max.value = 4095,
+                                                              time.firstOfYear = "%%year%%-01-01 00:00:00Z",
                                                               time.latest = "
                                                                   latest <- as.POSIXlt(Sys.time(), \"UTC\")
                                                                   latest$min <- latest$min %/% 5 * 5
@@ -101,7 +112,8 @@ radolan.configuration[["FX"]] <- radolan.configuration.create(type = "FX",
                                                               file.pattern = "FX%%time%%_%%prediction%%_MF002",
                                                               zip.pattern = "FX%%time%%.tar.bz2",
                                                               phenomenon = "reflectivity",
-                                                              uom = "dbZ")
+                                                              uom = "dbZ",
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/composit/fx/")
 
 #save configurations
 devtools::use_data(radolan.configuration, overwrite=T)

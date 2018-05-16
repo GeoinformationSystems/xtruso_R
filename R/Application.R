@@ -17,7 +17,7 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
                                      t.format = "%Y-%m-%d %H:%M:%S",
                                      t.zone = "UTC",
                                      extent = -1,
-                                     proj = CRS("+init=epsg:3857")) {
+                                     proj = "+init=epsg:3857") {
   
   if(missing(t.start))
     stop("Need to specify start timestamp.")
@@ -99,11 +99,11 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
 #' @return RADOLAN image for requested timestamp or stack of 2 images, if timestamp lies in between provision timestamps
 #' @export
 #' 
-x.app.radolan.raster <-  function(ncdf.folder,
-                                  radolan.type,
-                                  timestamp,
-                                  t.format = "%Y-%m-%d %H:%M:%S",
-                                  t.zone = "UTC") {
+x.app.radolan.raster <- function(ncdf.folder,
+                                 radolan.type,
+                                 timestamp,
+                                 t.format = "%Y-%m-%d %H:%M:%S",
+                                 t.zone = "UTC") {
   
   if(missing(ncdf.folder))
     stop("Need to specify NetCDF folder.")
@@ -137,6 +137,27 @@ x.app.radolan.raster <-  function(ncdf.folder,
   x.ncdf.close(ncdf)
   
   return(raster)
+  
+}
+
+
+#' 
+#' Update NetCDF file
+#'
+#' @param ncdf.folder folder with NetCDF files
+#' @param radolan.configuration RADOLAN configuration
+#' @param timestamp timestamp from which to update
+#' @param radolan.folder folder with RADOLAN images
+#' @export
+#' 
+x.app.radolan.rw.update <- function(ncdf.folder,
+                                    radolan.folder = NA) {
+  
+  #set ncdf file for current year
+  ncdf.file <- paste0(ncdf.folder, "/radolanRW-", format(Sys.time(), "%Y"), ".nc")
+  
+  #run update
+  x.radolan.ncdf.update(ncdf.file, xtruso::radolan.configuration$RW, radolan.folder)
   
 }
 
@@ -252,6 +273,7 @@ x.app.catchment.id <- function(catchments = xtruso::xtruso.catchments,
 
 #' Get RADOLAN timeseries for upstream catchment
 #'
+#' @param ncdf.folder NetCDF folder
 #' @param c.id start catchment identifier
 #' @param t.start first timestamp
 #' @param t.end last timestamp
@@ -287,16 +309,22 @@ x.app.catchment.radolan <- function(ncdf.folder = "/ncdf",
 #' @param s.id station identifier
 #' @param t.start first timestamp
 #' @param t.end last timestamp
+#' @param t.format timestamp format string
+#' @param t.zone time zone
+#' @param ows flag: retrieve data from OpenSensorWeb, instead of HWIMS
+#' @param hwims.configuration HWIMS configuration settings
 #' @param hwims.authentication valid HWIMS authentication (list(user="username", pass="password"))
 #' @return discharge timeseries for selected station
 #' @export
 #' 
 x.app.station.dc <- function(s.id,
                              t.start = "2006-01-01 00:00:00",
-                             t.end = "2017-12-31 23:59:00",
+                             t.end = Sys.time(),
                              t.format = "%Y-%m-%d %H:%M:%S",
                              t.zone = "UTC",
-                             hwims.configuration = xtruso::hwims.configuration$Q_1h,
+                             osw = F,
+                             osw.configuration = xtruso::osw.configuration$HWIMS_DC_15min,
+                             hwims.configuration = xtruso::hwims.configuration$Q_15min,
                              hwims.authentication) {
   
   # check, if station exists
@@ -309,6 +337,11 @@ x.app.station.dc <- function(s.id,
   if(!"POSIXct" %in% class(t.end))
     t.end <- as.POSIXct(t.end, format=t.format, tz=t.zone)
   
-  df.measurements <- x.hwims.get(hwims.configuration, s.id, t.start, t.end, hwims.authentication)
+  #get measurements
+  if(osw) df.measurements <- x.osw.get(osw.configuration, s.id, t.start, t.end)
+  else df.measurements <- x.hwims.get(hwims.configuration, s.id, t.start, t.end, hwims.authentication)
+  
+  return(df.measurements)
+ 
   
 }

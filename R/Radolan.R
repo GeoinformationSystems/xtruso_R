@@ -646,6 +646,17 @@ x.radolan.ncdf.update <- function(ncdf.file,
   #filter timestamps to be updated
   t.df <- t.df[!(t.df$timestamp %in% t.all) & t.df$timestamp <= Sys.time(), ]
   
+  if(nrow(t.df) == 0){
+    
+    message("no timestamps to update")
+    
+    #close file
+    x.ncdf.close(ncdf)
+    
+    return()
+  }
+    
+  
   for(i in 1:nrow(t.df)) {
     
     #set row

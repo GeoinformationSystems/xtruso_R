@@ -650,6 +650,7 @@ x.radolan.ncdf.update <- function(ncdf.file,
     
     #set row
     row <- t.df[i, ]
+    radolan.raster <- NULL
     
     #get RADOLAN raster from folder (if specified) or online
     if(!is.na(radolan.folder))

@@ -162,6 +162,85 @@ x.app.radolan.rw.update <- function(ncdf.folder,
 }
 
 
+#' Read single raster from COSMO-D2 NetCDF file
+#'
+#' @param ncdf.folder folder with NetCDF files (files must follow naming convention cosmoD2-%%parameter%%-%%year%%.nc)
+#' @param parameter COSMO parameter
+#' @param timestamp timestamp to be requested
+#' @param t.format time format, required if timestamp is not given as POSIXct
+#' @param t.zone time zone, required if t.format is applied
+#' @param forecast forecast step(s)
+#' @return RADOLAN image for requested timestamp or stack of 2 images, if timestamp lies in between provision timestamps
+#' @export
+#' 
+x.app.cosmo.raster <- function(ncdf.folder,
+                               parameter,
+                               timestamp,
+                               t.format = "%Y-%m-%d %H:%M:%S",
+                               t.zone = "UTC",
+                               forecast = -1) {
+  
+  if(missing(ncdf.folder))
+    stop("Need to specify NetCDF folder.")
+  
+  if(missing(parameter))
+    stop("Need to specify RADOLAN type.")
+  
+  if(missing(timestamp))
+    stop("Need to specify timestamp.")
+  
+  if(missing(forecast))
+    stop("Need to specify forecast")
+  
+  #set timestamp as POSIXct
+  if(!"POSIXt" %in% class(timestamp))
+    timestamp <- as.POSIXct(timestamp, format=t.format, tz=t.zone)
+  
+  #get target year
+  year <- format(timestamp, "%Y")
+  
+  #set file
+  ncdf.file <- paste0(ncdf.folder, "/cosmoD2-", parameter, "-", format(Sys.time(), "%Y"), ".nc")
+  
+  #set timestamp to numeric (as stored in NetCDF)
+  timestamp <- as.double(timestamp)
+  
+  #open NetCDF file
+  ncdf <- x.ncdf.open(ncdf.file)
+  
+  #get COSMO image
+  raster <- x.ncdf.subset(ncdf, extent=-1, timestamp=timestamp, forecast=forecast, as.raster=T) 
+  
+  #close NetCDF file
+  x.ncdf.close(ncdf)
+  
+  return(raster)
+  
+}
+
+
+#' 
+#' Update Cosmo D2 file
+#'
+#' @param ncdf.folder folder with NetCDF files
+#' @param radolan.configuration RADOLAN configuration
+#' @param timestamp timestamp from which to update
+#' @param radolan.folder folder with RADOLAN images
+#' @export
+#' 
+x.app.cosmo.update <- function(ncdf.folder, 
+                               cosmo.configuration, 
+                               append = F) {
+  
+  #set ncdf file for current year
+  ncdf.file <- paste0(ncdf.folder, "/cosmoD2-", cosmo.configuration$parameter, "-", format(Sys.time(), "%Y"), ".nc")
+  
+  #run update
+  x.cosmode.ncdf.update(ncdf.file, cosmo.configuration, append)
+  
+}
+
+
 #' 
 #' Get upstream catchments
 #'

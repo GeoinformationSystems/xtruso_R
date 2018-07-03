@@ -26,7 +26,7 @@ x.radolan.get <- function(radolan.root,
   radolan.configuration<- x.radolan.configuration(radolan.type)
 
   #set timestamp
-  if(!"POSIXct" %in% class(timestamp) && timestamp == "latest")
+  if(!"POSIXt" %in% class(timestamp) && timestamp == "latest")
     timestamp <- eval(parse(text = radolan.configuration$time.latest))
 
   radolan.raster <- NULL
@@ -572,7 +572,7 @@ x.radolan.ncdf.create <- function(ncdf.file,
   ncdf.t <- x.ncdf.dim("t", "seconds since 1970-01-01 00:00", as.integer(), unlimited=TRUE)
   
   #get variable description
-  ncdf.v <- x.ncdf.var.xytv(radolan.configuration$phenomenon, radolan.configuration$uom, ncdf.x, ncdf.y, ncdf.t, chunksizes=chunksizes, compression=compression)
+  ncdf.v <- x.ncdf.var.create(radolan.configuration$phenomenon, radolan.configuration$uom, list(ncdf.x, ncdf.y, ncdf.t), chunksizes=chunksizes, compression=compression)
   
   #create NetCDF file
   ncdf <- x.ncdf.create(ncdf.file, ncdf.v)

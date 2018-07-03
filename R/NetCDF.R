@@ -80,7 +80,7 @@ x.ncdf.rechunk <- function(ncdf.source,
 #' write raster to NetCDF file
 #' @param ncdf.file NetCDF file pointer
 #' @param ncdf.v NetCDF variable
-#' @param raster raster to write
+#' @param raster raster or raster stack to write (if a stack is provided, a forecast dimension "f" is written)
 #' @param t.value timestamp(s) for t dimension
 #' @param t.index index for timestamp within NetCDF t dimension
 #' @param xy flag: axis order is xy (transposed from row-col order)
@@ -98,14 +98,34 @@ x.ncdf.write <- function(ncdf,
   if(missing(raster))
     stop("Need to specify a raster or raster stack to write.")
   
-  #get raster array, flip and transpose to move bottom-left to top-left corner (rotation 90° clockwise)
-  matrix <- raster::as.matrix(raster::t(raster::flip(raster, "y")))
+  #write single raster
+  if(raster::nlayers(raster) == 1) {
   
-  #add timestamp as variable
-  ncdf4::ncvar_put(ncdf, "t", t.value, start=t.index, count=1)
+    #get raster array, flip and transpose to move bottom-left to top-left corner (rotation 90° clockwise)
+    matrix <- raster::as.matrix(raster::t(raster::flip(raster, "y")))
+    
+    #add timestamp as variable
+    ncdf4::ncvar_put(ncdf, "t", t.value, start=t.index, count=1)
+    
+    #add radolan matrix for selected timestamp
+    ncdf4::ncvar_put(ncdf, ncdf.v, matrix, start=c(1,1,t.index), count=c(-1,-1,1))
   
-  #add radolan matrix for selected timestamp
-  ncdf4::ncvar_put(ncdf, ncdf.v, matrix, start=c(1,1,t.index), count=c(-1,-1,1))
+  } else {
+    
+    for(f in 1:nlayers(raster)) {
+      
+      #get raster array, flip and transpose to move bottom-left to top-left corner (rotation 90° clockwise)
+      matrix <- raster::as.matrix(raster::t(raster::flip(raster[[f]], "y")))
+      
+      #add timestamp as variable
+      ncdf4::ncvar_put(ncdf, "t", t.value, start=t.index, count=1)
+      
+      #add matrix and forecast for selected timestamp
+      ncdf4::ncvar_put(ncdf, ncdf.v, matrix, start=c(1,1,t.index,f), count=c(-1,-1,1,1))
+      
+    }
+    
+  }
   
 }
 
@@ -247,21 +267,17 @@ x.ncdf.dim <- function(name,
 #' create NetCDF Variable with x, y, time and value
 #' @param v.phen value phenomenon
 #' @param v.uom value phenomenon uom
-#' @param x.dim ncdf4 dimension definition for x
-#' @param y.dim ncdf4 dimension definition for y
-#' @param t.dim ncdf4 dimension definition for t
+#' @param ncdf.dim list of NetCDF dimensions
 #' @param chunksizes NetCDF chunksize (vector of length 3 for x,y,t)
 #' @param compression NetCDF compression level (NA, 1:9)
-#' @return NetCDF variable for RADOLAN products
+#' @return NetCDF variable
 #' @export
 #' 
-x.ncdf.var.xytv <- function(v.phen,
-                            v.uom,
-                            ncdf.x,
-                            ncdf.y,
-                            ncdf.t,
-                            chunksizes = NA,
-                            compression = NA) {
+x.ncdf.var.create <- function(v.phen,
+                              v.uom,
+                              ncdf.dim,
+                              chunksizes = NA,
+                              compression = NA) {
   
   if(missing(v.phen))
     stop("Need to specify a phenomenon.")
@@ -273,7 +289,7 @@ x.ncdf.var.xytv <- function(v.phen,
     stop("Need to specify a compression between 1 and 9, or NA.")
   
   #create variable declaration
-  ncdf.v <- ncdf4::ncvar_def(v.phen, v.uom, list(ncdf.x, ncdf.y, ncdf.t), NA, chunksizes=chunksizes, compression=compression)
+  ncdf.v <- ncdf4::ncvar_def(v.phen, v.uom, ncdf.dim, NA, chunksizes=chunksizes, compression=compression)
   
   return(ncdf.v)
   
@@ -295,6 +311,7 @@ x.ncdf.var.xytv <- function(v.phen,
 x.ncdf.subset <- function(ncdf,
                           extent = -1,
                           timestamp = -1,
+                          forecast = NA,
                           ncdf.phen = ncdf$var[[1]]$name,
                           statistics = F,
                           as.raster = F) {
@@ -307,20 +324,20 @@ x.ncdf.subset <- function(ncdf,
   
   #return subset array, if no statistics are requested
   if(!statistics)
-    return(x.ncdf.subset.xytv(ncdf, extent, timestamp, as.raster=as.raster))
+    return(x.ncdf.subset.xytv(ncdf, extent, timestamp, forecast, as.raster=as.raster))
   
   #return statistics for polygon mask
   if(any(c("SpatialPolygons", "SpatialPolygonsDataFrame") %in% class(extent)))
-    return(x.ncdf.subset.mask(ncdf, extent, timestamp))
+    return(x.ncdf.subset.mask(ncdf, extent, timestamp, forecast))
   
   #return statistics for specified extent
-  return(x.ncdf.subset.extent(ncdf, extent, timestamp))
+  return(x.ncdf.subset.extent(ncdf, extent, timestamp, forecast))
   
 }
 
 
 #'
-#' request a subset from NetCDF file with x,y,t,v variable
+#' request a subset from NetCDF file with x,y,t,(f),v variable
 #'
 #' @param ncdf NetCDF file pointer
 #' @param extent extent, -1 returns whole extent
@@ -336,14 +353,15 @@ x.ncdf.subset <- function(ncdf,
 x.ncdf.subset.xytv <- function(ncdf,
                                extent = -1,
                                timestamp = -1,
+                               forecast = NA,
                                extent.indices = F,
                                t.index = F,
                                ncdf.phen = ncdf$var[[1]]$name,
                                as.raster = F) {
   
   #init start and count
-  start <- c(1, 1, 1)
-  count <- c(-1, -1, -1)
+  start <- if(any(is.na(forecast))) c(1, 1, 1) else c(1, 1, 1, 1)
+  count <- if(any(is.na(forecast))) c(-1, -1, -1) else c(-1, -1, -1, -1)
   
   #reset start and count for extent, if -1 (== not an S4 object)
   if(isS4(extent)){
@@ -376,13 +394,22 @@ x.ncdf.subset.xytv <- function(ncdf,
   
   }
   
+  #set forecast, if not NA
+  if(!any(is.na(forecast))) {
+    
+    #set start and count for timestamp
+    start[4] <- which(ncdf$dim$f$vals == min(forecast))
+    count[4] <- max(forecast) - min(forecast) + 1
+    
+  }
+  
   #get subset from NetCDF file
   subset <- ncdf4::ncvar_get(ncdf, ncdf.phen, start=start, count=count, collapse_degen=FALSE)
   
   #first transpose then flip subset (horizontally) to get top-left from bottom-left corner
-  subset <- aperm(subset, c(2,1,3))
+  subset <- if(any(is.na(forecast))) aperm(subset, c(2,1,3)) else aperm(subset, c(2,1,3,4))
   subset.dim <- dim(subset)
-  subset <- apply(subset, c(2,3), rev)
+  subset <- if(any(is.na(forecast))) apply(subset, c(2,3), rev) else apply(subset, c(2,3,4), rev)
   
   #restore corrct dimension, if collapsed (if length = 1)
   dim(subset) <- subset.dim
@@ -391,6 +418,7 @@ x.ncdf.subset.xytv <- function(ncdf,
   dimnames(subset)[[2]] <- as.list(ncdf$dim$x$vals[extent[1]:extent[2]])
   dimnames(subset)[[1]] <- as.list(ncdf$dim$y$vals[extent[4]:extent[3]])
   dimnames(subset)[[3]] <- as.list(x.ncdf.timestamps(ncdf, timestamp, inverse=T))
+  if(!any(is.na(forecast))) dimnames(subset)[[4]] <- min(forecast) : max(forecast)
   
   #return matrix, if as.raster = F
   if(!as.raster)
@@ -402,24 +430,55 @@ x.ncdf.subset.xytv <- function(ncdf,
   proj <- ncdf4::ncatt_get(ncdf, 0)[["proj4_params"]]
   if(!is.null(proj)) proj <- sp::CRS(proj)
   
-  #init stack and iterate over third dimension (t)
+  #init stack
   stack <- raster::stack()
-  for(t in 1:length(timestamp)) {
+  
+  # iterate over t
+  if(any(is.na(forecast))) {
     
-    #convert to raster
-    raster <- raster::raster(subset[,,t])
+    for(t in 1:length(timestamp)) {
+      
+      #convert to raster
+      raster <- raster::raster(subset[,,t])
+      
+      #set proper spatial extent
+      raster <- raster::setExtent(raster, extent)
+      
+      #check for projection from global proj4_params attribute
+      if(!is.null(proj)) raster::projection(raster) <- proj
+      
+      #set timestamp
+      attr(raster, "timestamp") <- as.POSIXct(timestamp[t], origin="1970-01-01", tz="UTC")
+      
+      #add raster to stack
+      stack <- raster::addLayer(stack, raster)
+    }
     
-    #set proper spatial extent
-    raster <- raster::setExtent(raster, extent)
+  # iterate over t and f
+  } else {
     
-    #check for projection from global proj4_params attribute
-    if(!is.null(proj)) raster::projection(raster) <- proj
-    
-    #set timestamp
-    attr(raster, "timestamp") <- as.POSIXct(timestamp[t], origin="1970-01-01", tz="UTC")
-    
-    #add raster to stack
-    stack <- raster::addLayer(stack, raster)
+    for(t in 1:length(timestamp)) {
+      
+      for(f in 1:length(forecast)) {
+      
+        #convert to raster
+        raster <- raster::raster(subset[,,t,f])
+        
+        #set proper spatial extent
+        raster <- raster::setExtent(raster, extent)
+        
+        #check for projection from global proj4_params attribute
+        if(!is.null(proj)) raster::projection(raster) <- proj
+        
+        #set timestamp and forecast
+        attr(raster, "timestamp") <- as.POSIXct(timestamp[t], origin="1970-01-01", tz="UTC")
+        attr(raster, "forecast") <- forecast[f]
+        
+        #add raster to stack
+        stack <- raster::addLayer(stack, raster)
+      
+      }
+    }
   }
   
   if(raster::nlayers(stack) == 1) return(stack[[1]])
@@ -445,20 +504,21 @@ x.ncdf.subset.xytv <- function(ncdf,
 x.ncdf.subset.extent <- function(ncdf,
                                  extent = -1,
                                  timestamp = -1,
+                                 forecast = NA,
                                  extent.indices = F,
                                  t.index = F,
                                  ncdf.phen = ncdf$var[[1]]$name,
                                  fun = list(mean=mean, median=median, min=min, max=max, sum=sum, sd=sd)) {
   
   #request NetCDF subset
-  subset <- x.ncdf.subset.xytv(ncdf, extent, timestamp, extent.indices, t.index, ncdf.phen, as.raster=F)
+  subset <- x.ncdf.subset.xytv(ncdf, extent, timestamp, forecast, extent.indices, t.index, ncdf.phen, as.raster=F)
   
   #init dataframe with timestamps
-  subset.df <- data.frame(timestamp=dimnames(subset)[[3]])
+  subset.df <- if(any(is.na(forecast))) data.frame(timestamp=dimnames(subset)[[3]]) else expand.grid(timestamp=dimnames(subset)[[3]], forecast=dimnames(subset)[[4]])
   
   #calculate statistics along temporal dimension based on provided functions
   for(f in names(fun)){
-    subset.df[f] <- apply(subset, 3, fun[[f]], na.rm=T)
+    subset.df[f] <- if(any(is.na(forecast))) apply(subset, 3, fun[[f]], na.rm=T) else c(apply(subset, c(3,4), fun[[f]], na.rm=T))
   }
   return(subset.df)
   
@@ -480,6 +540,7 @@ x.ncdf.subset.extent <- function(ncdf,
 x.ncdf.subset.mask <- function(ncdf,
                                polygon,
                                timestamp = -1,
+                               forecast = NA,
                                t.index = F,
                                ncdf.phen = ncdf$var[[1]]$name) {
   
@@ -496,10 +557,10 @@ x.ncdf.subset.mask <- function(ncdf,
   extent <- x.ncdf.extent(ncdf, extent.ncdf, inverse=T)
   
   #request NetCDF subset
-  subset <- x.ncdf.subset.xytv(ncdf, extent.ncdf, timestamp, extent.indices=T, t.index=t.index, ncdf.phen=ncdf.phen, as.raster=F)
+  subset <- x.ncdf.subset.xytv(ncdf, extent.ncdf, timestamp, forecast, extent.indices=T, t.index=t.index, ncdf.phen=ncdf.phen, as.raster=F)
   
   #init raster for zonal overlap computation
-  raster <- raster::raster(as.matrix(subset[,,1], nrow=nrow(subset), ncol=ncol(subset)))
+  raster <- raster::raster(matrix(0, nrow=nrow(subset), ncol=ncol(subset)))
   raster <- raster::setExtent(raster, extent)
   raster::projection(raster) <- proj
   
@@ -528,11 +589,11 @@ x.ncdf.subset.mask <- function(ncdf,
   )
   
   #init dataframe with timestamps
-  subset.df <- data.frame(timestamp=dimnames(subset)[[3]])
+  subset.df <- if(any(is.na(forecast))) data.frame(timestamp=dimnames(subset)[[3]]) else expand.grid(timestamp=dimnames(subset)[[3]], forecast=dimnames(subset)[[4]])
   
   #calculate statistics along temporal dimension based on provided functions
   for(f in names(fun)){
-    subset.df[f] <- apply(subset, 3, fun[[f]], weights=weights)
+    subset.df[f] <- if(any(is.na(forecast))) apply(subset, 3, fun[[f]], weights=weights) else c(apply(subset, c(3,4), fun[[f]], weights=weights))
   }
   
   #calculate sum by multiplying mean with area

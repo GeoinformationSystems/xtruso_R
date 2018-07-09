@@ -40,6 +40,7 @@ x.octave.execute <- function(octave.url,
 #'
 x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
                               octave.process = "flood_nn",
+                              ncdf.folder = "/ncdf",
                               gauge,
                               leadtime = 6,
                               len.discharge = 6,
@@ -64,7 +65,7 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   c.id <- x.app.catchment.id(station.id = gauge)
   
   #get recent precipitation
-  ts.radolan <- x.app.catchment.radolan(ncdf.folder="D:/Geodaten/RADOLAN/NetCDF", c.id=c.id, radolan.type="RW", t.start = fcpoint - (86400 * len.precipitation), t.end=fcpoint)
+  ts.radolan <- x.app.catchment.radolan(ncdf.folder=ncdf.folder, c.id=c.id, radolan.type="RW", t.start = fcpoint - (86400 * len.precipitation), t.end=fcpoint)
   ts.radolan$timestamp <- as.numeric(levels(ts.radolan$timestamp))
   
   #add 10min to RADOLAN timestamp to support forecasting
@@ -72,7 +73,7 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   ts.radolan$timestamp <- ts.radolan$timestamp + 600
   
   #get forecasted precipitation
-  ts.cosmo <- x.app.catchment.cosmo(ncdf.folder="D:/Geodaten", c.id=c.id)
+  ts.cosmo <- x.app.catchment.cosmo(ncdf.folder=ncdf.folder, c.id=c.id)
   ts.cosmo$timestamp <- as.numeric(levels(ts.cosmo$timestamp)) + (as.numeric(levels(ts.cosmo$forecast)) * 3600)
   ts.cosmo <- ts.cosmo[-which(ts.cosmo$timestamp %in% ts.radolan$timestamp), ]
   

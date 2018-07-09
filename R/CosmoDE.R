@@ -316,7 +316,7 @@ x.cosmode.ncdf.forecast <- function(ncdf,
     if(timestamp == "latest") {
       
       if(is.null(t.all) || length(t.all) == 0 || !any(t.all > 0))
-        stop("No valid tiemstamps found in NetCDF file.")
+        stop("No valid timestamps found in NetCDF file.")
       timestamp <- as.POSIXct(max(t.all), origin="1970-01-01", tz="UTC")
       
     } else timestamp <- as.POSIXct(timestamp, format=t.format, tz=t.zone)

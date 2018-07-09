@@ -294,6 +294,45 @@ x.cosmode.ncdf.update <- function(ncdf.file,
 
 
 #'
+#' get COSMO forecast
+#' @param ncdf NetCDF file object
+#' @param extent requested COSMO extent
+#' @param timestmap requested COSMO timestamp
+#' @param statistics flag: request COSMO statistics
+#' @return COSMO forecast
+#' @export
+#' 
+x.cosmode.ncdf.forecast <- function(ncdf,
+                                    extent = -1,
+                                    timestamp = "latest",
+                                    t.format = "%Y-%m-%d %H:%M:%S",
+                                    t.zone = "UTC",
+                                    statistics = F) {
+  #set timestamp
+  t.all <- ncdf$dim$t$vals
+  
+  if(!"POSIXt" %in% class(timestamp)) {
+    
+    if(timestamp == "latest") {
+      
+      if(is.null(t.all) || length(t.all) == 0 || !any(t.all > 0))
+        stop("No valid tiemstamps found in NetCDF file.")
+      timestamp <- as.POSIXct(max(t.all), origin="1970-01-01", tz="UTC")
+      
+    } else timestamp <- as.POSIXct(timestamp, format=t.format, tz=t.zone)
+    
+  }
+  
+  #get forecast
+  forecast <- if(format(timestamp, "%H") == "03") 0:45 else 0:27
+  cosmo.subset <- x.ncdf.subset(ncdf, extent=extent, timestamp=as.double(timestamp), forecast=forecast, statistics=statistics, as.raster=!statistics)
+  
+  return(cosmo.subset)
+  
+}
+
+
+#'
 #' get COSMO timestamps with index
 #' @param year year
 #' @return timestamps with associated index

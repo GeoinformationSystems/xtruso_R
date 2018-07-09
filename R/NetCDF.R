@@ -302,6 +302,7 @@ x.ncdf.var.create <- function(v.phen,
 #' @param ncdf.files list of NetCDF files to be requetsed for subset
 #' @param extent spatial extent or polygon for requesting the subset; if missing, the whole spatial extent is requested
 #' @param timestamp timestamp or interval with 2 timestmaps for t.start and t.end; if missing, the whole temporal extent is requested
+#' @param forecast requeted forecast step(s)
 #' @param ncdf.phen phenomenon to be requested fron NetCDF
 #' @param statistics flag: calculate statistics along temporal dimension
 #' @param as.raster flag: return raster or stack; ignored, if statistics = T
@@ -342,6 +343,7 @@ x.ncdf.subset <- function(ncdf,
 #' @param ncdf NetCDF file pointer
 #' @param extent extent, -1 returns whole extent
 #' @param timestamp timestamp(s) to be requested, -1 returns all timestamps
+#' @param forecast requested forecast step(s)
 #' @param extent.indices flag: extent coordinates are provided as NetCDF indices
 #' @param extent.all flag: request whole spatial dimension
 #' @param t.index flag: t is provided as index; if false, timestamp is selected from NetCDF file

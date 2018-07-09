@@ -131,3 +131,42 @@ x.utility.raster.disaggregate <- function(raster,
 }
 
 
+#'
+#' read GeoJSON from string
+#' 
+#' @param s.geojson GeoJSON input string
+#' @param proj projection parameter
+#' @return sp geometry object
+#'
+x.utility.parse.geojson <- function(s.geojson,
+                                    proj = "+init=epsg:3857") {
+  
+  if(typeof(s.geojson) != 'character')
+    stop("input must be a character string")
+  
+  #create temp file
+  temp <- tempfile(fileext=".json")
+  
+  #write extent to file
+  writeLines(extent, temp)
+  
+  tryCatch({
+    
+    #read JSON file
+    sp.geojson <- rgdal::readOGR(temp, p4s=as.character(proj))
+    
+  }, error = function(e){
+    
+    sp.geojson = NULL
+    warning("Could not parse GeoJSON character string")
+    
+  })
+  
+  #remove temp file
+  file.remove(temp)
+  
+  return(sp.geojson)
+
+}
+
+

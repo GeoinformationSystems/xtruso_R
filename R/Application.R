@@ -162,6 +162,58 @@ x.app.radolan.rw.update <- function(ncdf.folder,
 }
 
 
+#' Read forecast timeseries from COSMO NetCDF file
+#'
+#' @param ncdf.folder folder with NetCDF files (files must follow naming convention cosmoD2-%%parameter%%-%%year%%.nc)
+#' @param radolan.type RADOLAN type
+#' @param timestamp timestamp for which the forecast will be requested
+#' @param t.zone time zone, required if t.format is applied
+#' @param catchment.id 
+#' @param extent extent or polygon for which statistics are calculated; if -1, statistics are calculated for the whole extent
+#' @return timeseries for requested RADOLAN product, coordinate and timeframe
+#' @export
+#' 
+x.app.cosmo.forecast <- function(ncdf.folder = "/ncdf",
+                                 cosmo.configuration,
+                                 timestamp = "latest",
+                                 t.format = "%Y-%m-%d %H:%M:%S",
+                                 t.zone = "UTC",
+                                 extent = -1,
+                                 proj = "+init=epsg:3857") {
+  
+  if(missing(cosmo.configuration))
+    stop("Need to specify a COSMO configuration.")
+  
+  #try to parse GeoJSON
+  if(typeof(extent) == 'character') {
+    extent <- x.utility.parse.geojson(extent, proj)
+    if(is.null(extent)) stop("Provided extent is invalid.")
+  }
+  
+  if(!"POSIXt" %in% class(timestamp) && timestamp != "latest")
+    timestamp <- as.POSIXct(timestamp, format=t.format, tz=t.zone)
+ 
+  #get target year
+  year <- if("POSIXt" %in% class(timestamp)) format(timestamp, "%Y") else format(Sys.time(), "%Y")
+  
+  #set file
+  ncdf.file <- paste0(ncdf.folder, "/cosmoD2-", cosmo.configuration$parameter, "-", year, ".nc")
+  if(!file.exists(ncdf.file)) stop (paste0("COSMO data for ", year, " is not available."))
+  
+  #open NetCDF file
+  ncdf <- x.ncdf.open(ncdf.file)
+  
+  #request forecast
+  cosmo.subset <- x.cosmode.ncdf.forecast(ncdf, extent=extent, timestamp=timestamp, statistics=T)
+  
+  #close NetCDF file
+  x.ncdf.close(ncdf)
+
+  return(cosmo.subset)
+  
+}
+
+
 #' Read single raster from COSMO-D2 NetCDF file
 #'
 #' @param ncdf.folder folder with NetCDF files (files must follow naming convention cosmoD2-%%parameter%%-%%year%%.nc)
@@ -374,6 +426,36 @@ x.app.catchment.radolan <- function(ncdf.folder = "/ncdf",
   ts <- x.app.radolan.timeseries(ncdf.folder, radolan.type=radolan.type, t.start=t.start, t.end=t.end, extent=area)
   
   #mark and if requested remove lines with min = Inf (== no values in RADOLAN image)
+  ts.inf <- ts[is.infinite(ts$min), ]
+  if(nrow(ts.inf) > 0) warning(paste0("For ", nrow(ts.inf), " timestamps there are no values available."))
+  if(inf.rm) ts <- ts[is.finite(ts$min), ]
+  
+  return(ts)
+  
+}
+
+
+#' Get COSMO forecast for upstream catchment
+#'
+#' @param ncdf.folder NetCDF folder
+#' @param c.id start catchment identifier
+#' @param timestamp timestamp
+#' @param inf.rm flag: remove undefined measurements
+#' @return OSMO timeseries for upstream catchment
+#' @export
+#' 
+x.app.catchment.cosmo <- function(ncdf.folder = "/ncdf",
+                                  c.id,
+                                  timestamp = "latest",
+                                  inf.rm = T) {
+  
+  #get catchment area
+  area <- x.app.catchment.upstream(c.id=c.id, geometry=T, dissolve=T)
+  
+  #get timeseries
+  ts <- x.app.cosmo.forecast(ncdf.folder, xtruso::cosmo.configuration$tot_prec, timestamp=timestamp, extent=area)
+  
+  #mark and if requested remove lines with min = Inf (== no values in COSMO image)
   ts.inf <- ts[is.infinite(ts$min), ]
   if(nrow(ts.inf) > 0) warning(paste0("For ", nrow(ts.inf), " timestamps there are no values available."))
   if(inf.rm) ts <- ts[is.finite(ts$min), ]

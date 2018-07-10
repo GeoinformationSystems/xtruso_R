@@ -54,12 +54,12 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   
   #get current hour (fcpoint)
   fcpoint <- as.POSIXct(format(Sys.time(), "%Y-%m-%d %H:00:00"))
-  octave.params[["fcpoint"]] <- as.character(fcpoint)
+  octave.params[["fcpoint"]] <- as.character(fcpoint, tz=tz)
   
   #get discharge
   osw.discharge <- x.osw.get(xtruso::osw.configuration$HWIMS_DC_15min, gauge, t.start = fcpoint - (3600 * len.discharge) , t.end=fcpoint)
   octave.params[["Q"]] <- paste0(osw.discharge$v, collapse=",")
-  octave.params[["Qdate"]] <- paste0(osw.discharge$begin, collapse=",")
+  octave.params[["Qdate"]] <- paste0(as.character(osw.discharge$begin, tz=tz), collapse=",")
   
   #get catchment corresponding to station
   c.id <- x.app.catchment.id(station.id = gauge)
@@ -79,10 +79,10 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   
   #combine precipitation table
   ts.prec <- rbind(ts.radolan[, c("timestamp", "mean")], ts.cosmo[, c("timestamp", "mean")])
-  ts.prec$timestamp <- as.POSIXct(ts.prec$timestamp, origin="1970-01-01", tz=tz)
+  ts.prec$timestamp <- as.POSIXct(ts.prec$timestamp, origin="1970-01-01")
   
   octave.params[["P"]] <- paste0(ts.prec$mean, collapse=",")
-  octave.params[["Pdate"]] <- paste0(ts.prec$timestamp, collapse=",")
+  octave.params[["Pdate"]] <- paste0(as.character(ts.prec$timestamp, tz=tz), collapse=",")
   
   #execute
   forecast <- x.octave.execute(octave.url, octave.process, octave.params)

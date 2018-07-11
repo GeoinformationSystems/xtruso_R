@@ -57,7 +57,16 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   octave.params[["fcpoint"]] <- as.character(fcpoint, tz=tz)
   
   #get discharge
-  osw.discharge <- x.osw.get(xtruso::osw.configuration$HWIMS_DC_15min, gauge, t.start = fcpoint - (3600 * len.discharge) , t.end=fcpoint)
+  osw.discharge <- x.osw.get(xtruso::osw.configuration$HWIMS_DC_15min, gauge, t.start = fcpoint - (3600 * len.discharge - 1) , t.end=fcpoint)
+  
+  #calculate hourly discharge mean
+  osw.discharge$begin <- apply(osw.discharge[, "begin"], 1, function(t){
+    h <- trunc.POSIXt(t, "hours")
+    if(h == t) return(t) else return(format(h + 3600, "%Y-%m-%d %H:%M:%S"))
+  })
+  osw.discharge <- aggregate(. ~ begin, osw.discharge, mean)
+  
+  #set discharge param
   octave.params[["Q"]] <- paste0(osw.discharge$v, collapse=",")
   octave.params[["Qdate"]] <- paste0(as.character(osw.discharge$begin, tz=tz), collapse=",")
   

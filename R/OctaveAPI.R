@@ -99,6 +99,6 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   #assemble dataframe
   output <- unlist(strsplit(gsub("\n", ",", forecast$output), ","))
   df.output <- data.frame(timestamp=as.POSIXct(output[seq(leadtime+1, leadtime*2)], tz=tz), value=as.numeric(output[seq(1, leadtime)]))
-  return(df.output)
+  return(df.output[!is.na(df.output$value), ])
   
 }

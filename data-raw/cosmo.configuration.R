@@ -26,6 +26,7 @@ cosmo.configuration[["tot_prec"]] <- list("parameter" = "tot_prec",
                                           "proj" = cosmo.configuration.crs,
                                           "res.x" = cosmo.configuration.res.x,
                                           "res.y" = cosmo.configuration.res.y,
+                                          "is.sum" = TRUE,
                                           "dwd.root" = "https://opendata.dwd.de/weather/nwp/cosmo-d2/grib/")
 
 #save configurations

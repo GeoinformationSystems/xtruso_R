@@ -273,6 +273,16 @@ x.cosmode.ncdf.update <- function(ncdf.file,
       #read raster stack
       cosmo.stack <- x.cosmode.get(cosmo.configuration$dwd.root, cosmo.configuration$parameter, timestamp = timestamp, prediction = if(format(timestamp, "%H") == "03") 0:45 else 0:27)
       
+      #subtract predecessors, if parameter is stored as total sum
+      if(cosmo.configuration$is.sum) {
+        
+        #subtract predecessor
+        for(i in 2:nlayers(cosmo.stack)) {
+          cosmo.stack[[i]] <- cosmo.stack[[i]] - cosmo.stack[[i-1]]
+        }
+        
+      }
+      
       #write to NetCDF
       if(!is.null(cosmo.stack) && raster::nlayers(cosmo.stack) == if(format(timestamp, "%H") == "03") 46 else 28) {
         

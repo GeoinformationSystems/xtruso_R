@@ -75,17 +75,16 @@ x.zonal.overlap.extract <- function(index, raster, polygon, polygon.id) {
   id <- as.character(polygon[[polygon.id]])
   
   #get ovelap weight for each overlapping cell
-  z <- raster::extract(raster, polygon, small=T, weights=T, cellnumbers=T, normalizeWeights=F)
+  z <- as.data.frame(raster::extract(raster, polygon, small=T, weights=T, cellnumbers=T, normalizeWeights=F))
   
-  #get cell size covered by polygon
-  size <- z[[1]][, "weight"]
+  #get actual area of cells in map units
+  area <- raster::area(raster)
+  z$area <- area[z$cell]
   
   #calculate and normalized weights
-  weights = size / sum(size)
+  weights = z$weight / sum(z$weight)
   
-  #append cell information to dataframe
-  cell <- z[[1]][, "cell"]
-  return(data.frame(index, id, cell, raster::xyFromCell(raster, cell), size, weights))
+  return(data.frame(index, id, cell=z$cell, raster::xyFromCell(raster, z$cell), area=z$area, weights))
   
 }
 

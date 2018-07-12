@@ -277,8 +277,8 @@ x.cosmode.ncdf.update <- function(ncdf.file,
       if(cosmo.configuration$is.sum) {
         
         #subtract predecessor
-        for(i in 2:nlayers(cosmo.stack)) {
-          cosmo.stack[[i]] <- cosmo.stack[[i]] - cosmo.stack[[i-1]]
+        for(j in 2:nlayers(cosmo.stack)) {
+          cosmo.stack[[j]] <- cosmo.stack[[j]] - cosmo.stack[[j-1]]
         }
         
       }

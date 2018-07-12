@@ -78,7 +78,7 @@ x.zonal.overlap.extract <- function(index, raster, polygon, polygon.id) {
   z <- as.data.frame(raster::extract(raster, polygon, small=T, weights=T, cellnumbers=T, normalizeWeights=F))
   
   #get actual area of cells in map units
-  area <- raster::area(raster)
+  area <- raster::area(raster::projectRaster(raster, crs=CRS("+proj=longlat +datum=WGS84")))
   z$area <- area[z$cell]
   
   #calculate and normalized weights

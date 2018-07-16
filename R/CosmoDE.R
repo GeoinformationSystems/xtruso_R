@@ -333,7 +333,7 @@ x.cosmode.ncdf.forecast <- function(ncdf,
     stop("No corresponding timestamp found in NetCDF file.")
   
   #get forecast
-  forecast <- if(format(timestamp, "%H") == "03") 0:45 else 0:27
+  forecast <- if(format(as.POSIXct(timestamp, origin="1970-01-01"), "%H", tz="UTC") == "03") 0:45 else 0:27
   cosmo.subset <- x.ncdf.subset(ncdf, extent=extent, timestamp=as.double(timestamp), forecast=forecast, statistics=statistics, as.raster=!statistics)
   
   return(cosmo.subset)

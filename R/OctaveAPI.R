@@ -82,7 +82,7 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   ts.radolan$timestamp <- ts.radolan$timestamp + 600
   
   #get forecasted precipitation
-  ts.cosmo <- x.app.catchment.cosmo(ncdf.folder=ncdf.folder, c.id=c.id)
+  ts.cosmo <- x.app.catchment.cosmo(ncdf.folder=ncdf.folder, c.id=c.id, timestamp=fcpoint)
   ts.cosmo$timestamp <- as.numeric(levels(ts.cosmo$timestamp)) + (as.numeric(levels(ts.cosmo$forecast)) * 3600)
   ts.cosmo <- ts.cosmo[-which(ts.cosmo$timestamp %in% ts.radolan$timestamp), ]
   

@@ -54,7 +54,7 @@ x.zonal.overlap <- function(raster,
   }
   
   #set names
-  names(df.overlap) <- c("index", "id", "cell", "x", "y", "size", "weight")
+  names(df.overlap) <- c("index", "id", "cell", "x", "y", "size", "weight", "weight_norm")
 
   #return dataframe with overlap
   return(df.overlap)
@@ -82,9 +82,9 @@ x.zonal.overlap.extract <- function(index, raster, polygon, polygon.id) {
   z$area <- area[z$cell]
   
   #calculate and normalized weights
-  weights = z$weight / sum(z$weight)
+  weight_norm = z$weight / sum(z$weight)
   
-  return(data.frame(index, id, cell=z$cell, raster::xyFromCell(raster, z$cell), area=z$area, weights))
+  return(data.frame(index, id, cell=z$cell, raster::xyFromCell(raster, z$cell), area=z$area, z$weight, weight_norm))
   
 }
 

@@ -574,14 +574,11 @@ x.ncdf.subset.mask <- function(ncdf,
   
   #set weights based on overlay
   for(i in 1:nrow(df.overlap)){
-    weights[df.overlap[i, "cell"]] <- df.overlap[i, "weight"]
+    weights[df.overlap[i, "cell"]] <- df.overlap[i, "weight_norm"]
   }
   
   #transpose weights to get row,col order
   weights <- t(weights)
-  
-  #get total area of polygon in map units
-  area <- sum(df.overlap$size)
   
   #init functions based on polygon mask
   fun <- list(
@@ -598,8 +595,8 @@ x.ncdf.subset.mask <- function(ncdf,
     subset.df[f] <- if(any(is.na(forecast))) apply(subset, 3, fun[[f]], weights=weights) else c(apply(subset, c(3,4), fun[[f]], weights=weights))
   }
   
-  #calculate sum by multiplying mean with area
-  subset.df["sum"] <- subset.df$mean * area
+  #calculate sum by multiplying mean with overlapping raster area
+  subset.df["sum"] <- subset.df$mean *  sum(df.overlap$weight * df.overlap$size)
   
   return(subset.df)
   

@@ -7,6 +7,8 @@
 #' @param t.format time format, required if t.start and/or t.end are not given as POSIXct
 #' @param t.zone time zone, required if t.format is applied
 #' @param extent extent or polygon for which statistics are calculated; if -1, statistics are calculated for the whole extent
+#' @param statistics flag: request statistics for extent
+#' @param proj projection, if extent is given as json string
 #' @return timeseries for requested RADOLAN product, coordinate and timeframe
 #' @export
 #' 
@@ -17,6 +19,7 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
                                      t.format = "%Y-%m-%d %H:%M:%S",
                                      t.zone = "UTC",
                                      extent = -1,
+                                     statistics = T,
                                      proj = "+init=epsg:3857") {
   
   if(missing(t.start))
@@ -60,8 +63,11 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
     ncdf.files[as.character(year)] <- paste0(ncdf.folder, "/radolan", radolan.type, "-", year, ".nc")
   }
   
-  #init timeseries dataframe
-  timeseries <- data.frame()
+  #flag: first year in iteration
+  first <- T
+  
+  #result object
+  timeseries <- NULL
   
   for(year in years){
     
@@ -76,7 +82,17 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
     ncdf <- x.ncdf.open(ncdf.files[[as.character(year)]])
     
     #get timeseries from NetCDF
-    timeseries <- rbind(timeseries, x.ncdf.subset(ncdf, extent=extent, timestamp=timestamp, statistics=T))
+    subset <- x.ncdf.subset(ncdf, extent=extent, timestamp=timestamp, statistics=statistics)
+    
+    #get timeseries from NetCDF
+    if(first){
+      #initialize timeseries
+      timeseries <- subset
+    } else {
+      #combine timeseries
+      if(statistics) timeseries <- rbind(timeseries, subset)
+      else timeseries <- abind(timeseries, subset, along=3) 
+    }
     
     #close NetCDF file
     x.ncdf.close(ncdf)

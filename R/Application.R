@@ -88,6 +88,7 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
     if(first){
       #initialize timeseries
       timeseries <- subset
+      first <- F
     } else {
       #combine timeseries
       if(statistics) timeseries <- rbind(timeseries, subset)

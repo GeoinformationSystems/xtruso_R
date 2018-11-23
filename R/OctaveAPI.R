@@ -56,8 +56,14 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   fcpoint <- as.POSIXct(format(Sys.time(), "%Y-%m-%d %H:00:00"))
   octave.params[["fcpoint"]] <- as.character(fcpoint, tz=tz)
   
+  #set OSW parameters
+  osw.url <- "https://api.opensensorweb.de/v0"
+  osw.network <- "HWIMS"
+  osw.device <- gauge
+  osw.sensor <- paste0(gauge, "_DC_15MTV")
+  
   #get discharge
-  osw.discharge <- x.osw.get(xtruso::osw.configuration$HWIMS_DC_15min, gauge, t.start = fcpoint - (3600 * len.discharge - 1) , t.end=fcpoint)
+  osw.discharge <- x.osw.get(osw.url, osw.network, osw.device, osw.sensor, t.start = fcpoint - (3600 * len.discharge - 1) , t.end=fcpoint)
   
   #calculate hourly discharge mean
   osw.discharge$begin <- apply(osw.discharge[, "begin"], 1, function(t){

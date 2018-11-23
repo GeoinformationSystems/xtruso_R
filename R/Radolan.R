@@ -752,3 +752,36 @@ x.radolan.index4timestamp <- function(radolan.configuration,
   return(ifelse(offset %% radolan.configuration$time.interval == 0, offset / radolan.configuration$time.interval , NA))
   
 }
+
+
+#'
+#' interpolate RADOLAN values to match full hour timestamps
+#' @param radolan.matrix RADOLAN value matrix (time slices with dimnames representing x,y,t)
+#' @param timestamps new timestamps for interpolation
+#' @return interpolated RADOLAN matrix
+#' @export
+#' 
+x.radolan.interpolate <- function(radolan.matrix, 
+                                  timestamps = as.double(dimnames(radolan.matrix)[[3]]) + 600) {
+  
+  #get old timestamps from matrix dimnaes
+  timestamps.orig <- as.double(dimnames(radolan.matrix)[[3]])
+  
+  #interpolate RADOLAN values
+  matrix.new <- apply(radolan.matrix, 1:2, function(x){
+    
+    #define interpolation function for each row/col
+    f <- approxfun(timestamps.orig, x)
+    
+    #interpolate
+    return(f(timestamps))
+    
+  })
+  
+  #reorder and set new timestamps
+  matrix.new <- aperm(matrix.new, c(2,3,1))
+  dimnames(matrix.new)[[3]] <- timestamps
+  
+  return(matrix.new)
+  
+}

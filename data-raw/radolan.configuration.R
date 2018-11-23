@@ -20,7 +20,8 @@ radolan.configuration.create = function(type,
                                         zip.pattern = NA,
                                         phenomenon,
                                         uom,
-                                        dwd.root) {
+                                        dwd.root,
+                                        col.map) {
 
   return(list("type" = type,
               "ncol" = 900,
@@ -39,7 +40,8 @@ radolan.configuration.create = function(type,
               "zip.pattern" = zip.pattern,
               "phenomenon" = phenomenon,
               "uom" = uom,
-              "dwd.root" = dwd.root))
+              "dwd.root" = dwd.root,
+              "col.map" = col.map))
 
 }
 
@@ -59,7 +61,8 @@ radolan.configuration[["SF"]] <- radolan.configuration.create(type = "SF",
                                                               file.pattern = "raa01-sf_10000-%%time%%-dwd---bin",
                                                               phenomenon = "precipitation",
                                                               uom = "mm/sqm",
-                                                              dwd.root = "https://opendata.dwd.de/weather/radar/radolan/sf/")
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/radolan/sf/",
+                                                              col.map = data.frame(limit=c(), col=c(), stringsAsFactors = F))
 
 radolan.configuration[["RW"]] <- radolan.configuration.create(type = "RW",
                                                               bits = 2,
@@ -76,7 +79,8 @@ radolan.configuration[["RW"]] <- radolan.configuration.create(type = "RW",
                                                               file.pattern = "raa01-rw_10000-%%time%%-dwd---bin",
                                                               phenomenon = "precipitation",
                                                               uom = "mm/sqm",
-                                                              dwd.root = "https://opendata.dwd.de/weather/radar/radolan/rw/")
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/radolan/rw/",
+                                                              col.map = data.frame(limit=c(0.1,0.2,0.5,1,2,5,10,15,25,40,60,80,100), col=colorRampPalette(c("lightblue","darkblue","darkmagenta"))(13), stringsAsFactors = F))
 
 
 radolan.configuration[["RX"]] <- radolan.configuration.create(type = "RX",
@@ -94,7 +98,8 @@ radolan.configuration[["RX"]] <- radolan.configuration.create(type = "RX",
                                                               file.pattern = "raa01-rx_10000-%%time%%-dwd---bin",
                                                               phenomenon = "reflectivity",
                                                               uom = "dbZ",
-                                                              dwd.root = "https://opendata.dwd.de/weather/radar/composit/rx/")
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/composit/rx/",
+                                                              col.map = data.frame(limit=c(), col=c(), stringsAsFactors = F))
 
 
 radolan.configuration[["FX"]] <- radolan.configuration.create(type = "FX",
@@ -113,7 +118,8 @@ radolan.configuration[["FX"]] <- radolan.configuration.create(type = "FX",
                                                               zip.pattern = "FX%%time%%.tar.bz2",
                                                               phenomenon = "reflectivity",
                                                               uom = "dbZ",
-                                                              dwd.root = "https://opendata.dwd.de/weather/radar/composit/fx/")
+                                                              dwd.root = "https://opendata.dwd.de/weather/radar/composit/fx/",
+                                                              col.map = data.frame(limit=c(), col=c(), stringsAsFactors = F))
 
 #save configurations
 devtools::use_data(radolan.configuration, overwrite=T)

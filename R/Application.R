@@ -116,9 +116,10 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
 #' @return RADOLAN image for requested timestamp or stack of 2 images, if timestamp lies in between provision timestamps
 #' @export
 #' 
-x.app.radolan.raster <- function(ncdf.folder,
-                                 radolan.type,
+x.app.radolan.raster <- function(ncdf.folder = "/ncdf",
+                                 radolan.type = "RW",
                                  timestamp,
+                                 extent = -1,
                                  t.format = "%Y-%m-%d %H:%M:%S",
                                  t.zone = "UTC") {
   
@@ -148,12 +149,109 @@ x.app.radolan.raster <- function(ncdf.folder,
   ncdf <- x.ncdf.open(ncdf.file)
   
   #get RADOLAN image
-  raster <- x.ncdf.subset(ncdf, extent=-1, timestamp=timestamp, as.raster=T) 
+  raster <- x.ncdf.subset(ncdf, extent=extent, timestamp=timestamp, as.raster=T) 
   
   #close NetCDF file
   x.ncdf.close(ncdf)
   
   return(raster)
+  
+}
+
+
+#' Read map image from RADOLAN NetCDF file based on WMS parameters
+#'
+#' @param ncdf.folder folder with NetCDF files (files must follow naming convention radolan%%radolan.type%%-%%year%%)
+#' @param t.format time format, required if t.start and/or t.end are not given as POSIXct
+#' @param t.zone time zone, required if t.format is applied
+#' @param p.layer RADOLAN layer
+#' @param p.timestamp RADOLAN timestamp
+#' @param p.width
+#' @param p.height
+#' @param p.bbox
+#' @param p.srs
+#' @param p.format
+#' @param p.transparent
+#' @return RADOLAN image for requested timestamp
+#' @export
+#' 
+x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
+                                 t.format = "%Y-%m-%d %H:%M:%S",
+                                 t.zone = "UTC",
+                                 p.layer = "RW",
+                                 p.timestamp = "latest",
+                                 p.width,
+                                 p.height,
+                                 p.bbox,
+                                 p.srs,
+                                 p.format = "image/png",
+                                 p.transparent = "true") {
+  
+  tryCatch ({
+    
+    #validate p.layer
+    if(!(p.layer) %in% c("RW"))
+      stop(paste0("Layer not supported: ", p.layer))
+    
+    #validate format
+    format <- gsub("%2F", "/", p.format)
+    if(!(format) %in% c("image/png"))
+      stop(paste0("Layer not supported: ", p.format))
+    
+    #get timestamp
+    timestamp <- if(p.timestamp == "latest") 
+      eval(parse(text = xtruso::radolan.configuration[[p.layer]]$time.latest)) else 
+        as.POSIXct(p.timestamp, format=t.format, tz=t.zone)
+    
+    #validate timestamp
+    if(!(format(timestamp , "%Y") %in% 2006:2018) || format(timestamp , "%M") != 50)
+      stop(paste0("Invalid timestamp: ", timestamp))
+    
+    #get and validate width and height
+    width <- as.numeric(p.width)
+    height <- as.numeric(p.height)
+    
+    #get and validate bounding box (minx,miny,maxx,maxy)
+    bbox <- as.double(unlist(strsplit(gsub("%2C", ",", p.bbox), ",")))
+    
+    #get and validate crs
+    crs <- crs(paste0("+init=", gsub("%3A", ":", p.srs)))
+    
+    #set extent
+    extent <- extent(bbox[1], bbox[3], bbox[2], bbox[4])
+    extent.proj <- as(extent, 'SpatialPolygons')
+    sp::proj4string(extent.proj) <- crs
+    extent.proj <- extent(sp::spTransform(extent.proj, xtruso::radolan.configuration.crs)) + 50
+    
+    #get and validate transparency
+    transparent <- as.logical(p.transparent)
+    
+    #get raster from NetCDF
+    raster <- xtruso::x.app.radolan.raster(ncdf.folder=ncdf.folder, extent=extent.proj, radolan.type=p.layer, timestamp=timestamp)
+    
+    #reproject raster
+    if(proj4string(raster) != crs@projargs)
+      raster <- raster::projectRaster(raster, crs=crs)
+    
+    #set 0 to NA to enable transparency
+    raster[raster == 0] <- NA
+    
+    #resample with target extent
+    raster.target <- raster(nrow=height, ncol=width, crs=crs, ext=extent)
+    raster.target <- raster::resample(raster, raster.target, method='ngb')
+    
+    #write PNG
+    col.map <- xtruso::radolan.configuration[[p.layer]]$col.map
+    raster.frame <- as(raster.target, 'SpatialPixelsDataFrame')
+    raster.frame$colors <- as.numeric(raster::cut(raster.frame$layer, breaks=c(0,col.map$limit)))
+    
+    filename = "map.png"
+    map <- rgdal::writeGDAL(raster.frame[, 'colors'], filename, drivername=toupper(gsub("image/", "", format)), type="Byte", mvFlag=0, colorTables=list(col.map$col))
+    return(filename)
+  
+  }, error = function(e) {
+    return(paste0("Error: ", e))
+  })
   
 }
 

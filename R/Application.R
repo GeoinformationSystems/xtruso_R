@@ -233,9 +233,6 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
     if(proj4string(raster) != crs@projargs)
       raster <- raster::projectRaster(raster, crs=crs)
     
-    #set 0 to NA to enable transparency
-    raster[raster == 0] <- NA
-    
     #resample with target extent
     raster.target <- raster(nrow=height, ncol=width, crs=crs, ext=extent)
     raster.target <- raster::resample(raster, raster.target, method='ngb')

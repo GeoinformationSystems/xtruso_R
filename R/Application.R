@@ -246,8 +246,9 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
     raster.frame$colors <- as.numeric(raster::cut(raster.frame$layer, breaks=c(0,col.map$limit)))
     
     filename = "map.png"
-    map <- rgdal::writeGDAL(raster.frame[, 'colors'], filename, drivername=toupper(gsub("image/", "", format)), type="Byte", mvFlag=0, colorTables=list(col.map$col))
-    return(filename)
+    rgdal::writeGDAL(raster.frame[, 'colors'], filename, drivername=toupper(gsub("image/", "", format)), type="Byte", mvFlag=0, colorTables=list(col.map$col))
+    
+    return(data.frame("timestamp" = timestamp, "file" = filename))
   
   }, error = function(e) {
     return(paste0("Error: ", e))

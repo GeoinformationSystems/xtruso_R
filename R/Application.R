@@ -200,7 +200,7 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
     
     #get timestamp
     timestamp <- if(p.timestamp == "latest") 
-      eval(parse(text = xtruso::radolan.configuration[[p.layer]]$time.latest)) else 
+      max(x.app.radolan.timestamps(ncdf.folder, p.layer, format(Sys.time(), "%Y"))) else 
         as.POSIXct(p.timestamp, format=t.format, tz=t.zone)
     
     #validate timestamp
@@ -257,15 +257,47 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
 
 
 #' 
+#' get all supported timestamps from NetCDF
+#'
+#' @param ncdf.folder folder with NetCDF files
+#' @param radolan.folder folder with RADOLAN images
+#' @param year requested year
+#' @export
+#' 
+x.app.radolan.timestamps <- function(ncdf.folder = "/ncdf",
+                                     radolan.type = "RW",
+                                     year = 2006:format(Sys.time(), "%Y")) {
+  
+  #get NetCDF file(s)
+  ncdf.files <- paste0(ncdf.folder, "/radolanRW-", year, ".nc")
+  
+  #get all timestamps from NetCDF
+  timestamps <- c()
+  for(file in ncdf.files) {
+    
+    #next, if file does not exist
+    if(!file.exists(file))
+      next
+    
+    #extract timestamps from NetCDF file
+    ncdf <- x.ncdf.open(file)
+    timestamps <- c(timestamps, ncdf$dim$t$vals)
+    x.ncdf.close(ncdf)
+  }
+  
+  return(as.POSIXct(timestamps, origin="1970-01-01", tz="UTC"))
+  
+}
+
+
+#' 
 #' Update NetCDF file
 #'
 #' @param ncdf.folder folder with NetCDF files
-#' @param radolan.configuration RADOLAN configuration
-#' @param timestamp timestamp from which to update
 #' @param radolan.folder folder with RADOLAN images
 #' @export
 #' 
-x.app.radolan.rw.update <- function(ncdf.folder,
+x.app.radolan.rw.update <- function(ncdf.folder = "/ncdf",
                                     radolan.folder = NA) {
   
   #set ncdf file for current year

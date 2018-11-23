@@ -215,7 +215,7 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
     bbox <- as.double(unlist(strsplit(gsub("%2C", ",", p.bbox), ",")))
     
     #get and validate crs
-    crs <- crs(paste0("+init=", gsub("%3A", ":", p.srs)))
+    crs <- raster::crs(paste0("+init=", tolower(gsub("%3A", ":", p.srs))))
     
     #set extent
     extent <- extent(bbox[1], bbox[3], bbox[2], bbox[4])

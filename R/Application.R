@@ -225,27 +225,33 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
     
     #get and validate transparency
     transparent <- as.logical(p.transparent)
-    
+    nodata <- if(transparent) 0 else NA
+
     #get raster from NetCDF
     raster <- xtruso::x.app.radolan.raster(ncdf.folder=ncdf.folder, extent=extent.proj, radolan.type=p.layer, timestamp=timestamp)
     
-    #reproject raster
-    if(proj4string(raster) != crs@projargs)
-      raster <- raster::projectRaster(raster, crs=crs)
-    
-    #resample with target extent
-    raster.target <- raster(nrow=height, ncol=width, crs=crs, ext=extent)
-    raster.target <- raster::resample(raster, raster.target, method='ngb')
-    
-    #write PNG
+    #write raster to tempfile
+    temp_1 <- paste0(tempfile(),".tif")
+    raster::writeRaster(raster, filename=temp_1, format="GTiff", overwrite=TRUE)
+
+    #gdal warp to crs and extent
+    temp_2 <- paste0(tempfile(),".tif")
+    gdalUtils::gdalwarp(srcfile=temp_1, dstfile=temp_2, s_srs=proj4string(raster), t_srs=crs@projargs, r="near", te=bbox, ts=c(width,height), srcnodata=nodata, dstalpha=T)
+
+    #get color table
     col.map <- xtruso::radolan.configuration[[p.layer]]$col.map
-    raster.frame <- as(raster.target, 'SpatialPixelsDataFrame')
-    raster.frame$colors <- as.numeric(raster::cut(raster.frame$layer, breaks=c(0,col.map$limit)))
-    
-    filename = "map.png"
-    rgdal::writeGDAL(raster.frame[, 'colors'], filename, drivername=toupper(gsub("image/", "", format)), type="Byte", mvFlag=0, colorTables=list(col.map$col))
-    
-    return(data.frame("timestamp" = timestamp, "file" = filename))
+    raster.frame <- as(raster(temp_2), 'SpatialPixelsDataFrame')
+    raster.frame$colors <- as.numeric(raster::cut(raster.frame[[1]], breaks=c(col.map$limit)))
+ 
+    #write image
+    temp_3 = paste0(tempfile(),".png")
+    rgdal::writeGDAL(raster.frame[, 'colors'], temp_3, drivername=toupper(gsub("image/", "", format)), type="Byte", mvFlag=nodata, colorTables=list(c("#FFFFFF", col.map$col)))
+
+    #clean up
+    file.remove(c(temp_1, temp_2))
+
+    #return timestamp and file path
+    return(data.frame("timestamp" = timestamp, "file" = basename(temp_3)))
   
   }, error = function(e) {
     return(paste0("Error: ", e))

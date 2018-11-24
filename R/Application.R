@@ -236,7 +236,7 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
 
     #gdal warp to crs and extent
     temp_2 <- paste0(tempfile(),".tif")
-    gdalUtils::gdalwarp(srcfile=temp_1, dstfile=temp_2, s_srs=proj4string(raster), t_srs=crs@projargs, r="near", te=bbox, ts=c(width,height), srcnodata=nodata, dstalpha=T)
+    gdalUtils::gdalwarp(srcfile=temp_1, dstfile=temp_2, s_srs=proj4string(raster), t_srs=crs@projargs, r="near", te=bbox, ts=c(width,height))
 
     #get color table
     col.map <- xtruso::radolan.configuration[[p.layer]]$col.map

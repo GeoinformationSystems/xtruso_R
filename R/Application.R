@@ -194,11 +194,12 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
       stop(paste0("Layer not supported: ", p.layer))
     
     #validate format
-    format <- gsub("%2F", "/", p.format)
+    format <- utils::URLdecode(p.format)
     if(!(format) %in% c("image/png"))
       stop(paste0("Layer not supported: ", p.format))
     
     #get timestamp
+    timestamp <- utils::URLdecode(timestamp)
     timestamp <- if(p.timestamp == "latest") 
       max(x.app.radolan.timestamps(ncdf.folder, p.layer, format(Sys.time(), "%Y"))) else 
         as.POSIXct(p.timestamp, format=t.format, tz=t.zone)
@@ -212,10 +213,10 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
     height <- as.numeric(p.height)
     
     #get and validate bounding box (minx,miny,maxx,maxy)
-    bbox <- as.double(unlist(strsplit(gsub("%2C", ",", p.bbox), ",")))
+    bbox <- as.double(unlist(strsplit(utils::URLdecode(p.bbox), ",")))
     
     #get and validate crs
-    crs <- raster::crs(paste0("+init=", tolower(gsub("%3A", ":", p.srs))))
+    crs <- raster::crs(paste0("+init=", tolower(utils::URLdecode(p.srs))))
     
     #set extent
     extent <- extent(bbox[1], bbox[3], bbox[2], bbox[4])

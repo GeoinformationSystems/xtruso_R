@@ -266,14 +266,18 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
 #' @param ncdf.folder folder with NetCDF files
 #' @param radolan.folder folder with RADOLAN images
 #' @param year requested year
+#' @param iso return ISO Strings in UTC (%Y:%M:%DT%H:%M:%SZ), else return POSIXct array
+#' @param latest return only letest timestamp
 #' @export
 #' 
 x.app.radolan.timestamps <- function(ncdf.folder = "/ncdf",
                                      radolan.type = "RW",
-                                     year = 2006:format(Sys.time(), "%Y")) {
+                                     year = 2006:format(Sys.time(), "%Y"),
+                                     iso = F,
+                                     latest = F) {
   
   #get NetCDF file(s)
-  ncdf.files <- paste0(ncdf.folder, "/radolanRW-", year, ".nc")
+  ncdf.files <- paste0(ncdf.folder, "/radolanRW-", if(latest) max(year) else year, ".nc")
   
   #get all timestamps from NetCDF
   timestamps <- c()
@@ -284,12 +288,16 @@ x.app.radolan.timestamps <- function(ncdf.folder = "/ncdf",
       next
     
     #extract timestamps from NetCDF file
-    ncdf <- x.ncdf.open(file)
+    ncdf <- xtruso::x.ncdf.open(file)
     timestamps <- c(timestamps, ncdf$dim$t$vals)
-    x.ncdf.close(ncdf)
+    xtruso::x.ncdf.close(ncdf)
   }
   
-  return(as.POSIXct(timestamps, origin="1970-01-01", tz="UTC"))
+  if(latest) timestamps <- max(timestamps)
+  
+  timestamps <- if(iso) strftime(as.POSIXct(timestamps, origin="1970-01-01", tz="UTC"), tz="UTC", format="%Y-%m-%dT%H:%M:%SZ") else as.POSIXct(timestamps, origin="1970-01-01", tz="UTC")
+  
+  return(timestamps)
   
 }
 

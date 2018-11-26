@@ -199,7 +199,8 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
       stop(paste0("Layer not supported: ", p.format))
     
     #get timestamp
-    timestamp <- utils::URLdecode(timestamp)
+    p.timestamp <- utils::URLdecode(p.timestamp)
+    t.format <- utils::URLdecode(utils::URLencode(t.format))
     timestamp <- if(p.timestamp == "latest") 
       max(x.app.radolan.timestamps(ncdf.folder, p.layer, format(Sys.time(), "%Y"))) else 
         as.POSIXct(p.timestamp, format=t.format, tz=t.zone)

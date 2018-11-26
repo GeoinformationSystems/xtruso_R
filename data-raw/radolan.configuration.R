@@ -80,7 +80,7 @@ radolan.configuration[["RW"]] <- radolan.configuration.create(type = "RW",
                                                               phenomenon = "precipitation",
                                                               uom = "mm/sqm",
                                                               dwd.root = "https://opendata.dwd.de/weather/radar/radolan/rw/",
-                                                              col.map = data.frame(limit=c(0.1,0.2,0.5,1,2,5,10,15,25,40,60,80,100), col=colorRampPalette(c("lightblue","darkblue","darkmagenta"))(13), stringsAsFactors = F))
+                                                              col.map = data.frame(limit=c(0.1,0.2,0.5,1,2,5,10,15,25,40,60,80,100), col=c("#fcffc1","#fbff5c","#dffc26","#a0d626","#45c379","#00d6d8","#11a1d6","#0702fc","#9232b7","#da28c6","#e70d0c","#880e0d","#4f0e0d"), stringsAsFactors = F))
 
 
 radolan.configuration[["RX"]] <- radolan.configuration.create(type = "RX",
@@ -122,6 +122,6 @@ radolan.configuration[["FX"]] <- radolan.configuration.create(type = "FX",
                                                               col.map = data.frame(limit=c(), col=c(), stringsAsFactors = F))
 
 #save configurations
-devtools::use_data(radolan.configuration, overwrite=T)
-devtools::use_data(radolan.configuration.extent900, overwrite=T)
-devtools::use_data(radolan.configuration.crs, overwrite=T)
+usethis::use_data(radolan.configuration, overwrite=T)
+usethis::use_data(radolan.configuration.extent900, overwrite=T)
+usethis::use_data(radolan.configuration.crs, overwrite=T)

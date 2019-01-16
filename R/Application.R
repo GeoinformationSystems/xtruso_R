@@ -205,10 +205,6 @@ x.app.radolan.getMap <- function(ncdf.folder = "/ncdf",
       max(x.app.radolan.timestamps(ncdf.folder, p.layer, format(Sys.time(), "%Y"))) else 
         as.POSIXct(p.timestamp, format=t.format, tz=t.zone)
     
-    #validate timestamp
-    if(!(format(timestamp , "%Y") %in% 2006:2018) || format(timestamp , "%M") != 50)
-      stop(paste0("Invalid timestamp: ", timestamp))
-    
     #get and validate width and height
     width <- as.numeric(p.width)
     height <- as.numeric(p.height)
@@ -658,6 +654,114 @@ x.app.station.dc <- function(s.id,
   else df.measurements <- x.hwims.get(hwims.configuration, s.id, t.start, t.end, hwims.authentication)
   
   return(df.measurements)
- 
   
+}
+
+
+#' run BROOK90 model for selected catchment
+#' 
+#' @param c.id catchment identifier(s)
+#' @return BROOK90 soil moisture
+#' @export
+#' 
+x.app.brook90 <- function(c.ids) {
+  
+  soilmoist <- NULL
+  osw.cache <- list()
+  
+  # set timestamp defaults
+  t.end <- as.POSIXct("2018-12-31", "%Y-%m-%d", tz="UTC")
+  t.start <- as.POSIXct(format(t.end - 12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600
+  
+  # set OSW defaults
+  osw.url <- "https://api.opensensorweb.de/v0"
+  osw.network <- c("DWD","AMMS_WETTERDATEN")
+  osw.stations <- x.osw.stations("https://search.opensensorweb.de/v0/sensor/_search", osw.network, extent = c(11,50,16,52))
+  osw.params <- c("air temperature", "global radiation", "relative humidity", "wind speed")
+  
+  for(c.id in c.ids) {
+    
+    tryCatch ({
+      # select catchment
+      catchment <- xtruso::xtruso.catchments[xtruso::xtruso.catchments$GKZ == c.id, ]
+      if(length(catchment) != 1)
+        stop(paste("Catchment selection returned", length(catchment), "catchments"))
+      
+      # get catchment parameters
+      c.param <- x.brook90.params(catchment)
+      c.ts <- list()
+      
+      # check parameter list (warn and remove, if other > 25%, stop, if other > 50%)
+      area <- sum(c.param$characteristics$area_sqkm)
+      soil.other <- sum(c.param$characteristics[c.param$characteristics$Sl_USDA %in% c(" ", "Other"), "area_sqkm"])
+      if(soil.other > .5*area) stop("Soil type 'Other' is > 50% of area")
+      if(soil.other > .25*area) warning("Soil type 'Other is' 25%-50% of area")
+      lcover.other <- sum(c.param$characteristics[c.param$characteristics$lcover %in% c("Others"), "area_sqkm"])
+      if(lcover.other > .5*area) stop("Land cover 'Other' is > 50% of area")
+      if(lcover.other > .25*area) warning("Land cover 'Other' is 25%-50% of area")
+      
+      # remove classes with Other
+      c.param$characteristics <- c.param$characteristics[!c.param$characteristics$Sl_USDA %in% c(" ", "Other") && c.param$characteristics$Sl_USDA != "Others", ]
+      
+      # get OSW station measurements from OSW
+      for(p in osw.params) {
+        ts <- x.brook90.measurements(catchment=catchment, c.height=c.param$height_mean, osw.stations=osw.stations, osw.phenomenon=p, osw.cache=osw.cache, osw.url=osw.url, osw.network=osw.network, t.start=t.start, t.end=t.end, intermediate=TRUE)
+        # update sensor cache
+        osw.cache <- ts$osw.cache
+        c.ts[[p]] <- ts$measurements.day.combined
+      }
+      
+      # compute vapor pressure
+      c.ts[["vapor pressure"]] <- data.frame(
+        "date" = c.ts[["air temperature"]]["date"], 
+        "vapor.pressure.mean" = x.brook90.vaporPressure(unlist(c.ts[["air temperature"]]["air.temperature.mean"]), unlist(c.ts[["relative humidity"]]["relative.humidity.mean"] / 100)))
+      
+      # get radar precipitation
+      c.prec <- x.app.radolan.timeseries(ncdf.folder = "D:/Geodaten/RADOLAN/NetCDF", t.start=t.start, t.end=t.end, extent=catchment)
+      c.prec$timestamp <- as.POSIXct(as.numeric(levels(c.prec$timestamp))[c.prec$timestamp], origin="1970-01-01", tz="UTC")
+      c.ts[["precipitation"]] <- setNames(as.data.frame(stats::aggregate(c.prec$mean, list(as.Date(c.prec$timestamp)), sum)), c("date", "precipitation"))
+      
+      # combine meteorological measurements in a dataframe
+      c.ts[["refDate"]] <-  data.frame(date = as.Date(as.Date(t.start) : as.Date(t.end), origin="1970-01-01"))
+      c.meteo <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, all.y=TRUE, suffixes=c(1,2)), c.ts)
+      
+      # interpolate values, if required
+      c.meteo[, -1] <- apply(c.meteo[, -1], 2, function(x) {
+        zoo::na.approx(x)
+      })
+      
+      # prepare timeseries with meteorological input
+      df.meteoFile <- data.frame(
+        year = as.numeric(format(c.meteo$date, "%Y")),
+        month = as.numeric(format(c.meteo$date, "%m")),
+        day = as.numeric(format(c.meteo$date, "%d")),
+        solrad = c.meteo[["global.radiation.mean"]] * 24 / 3600,
+        maxtemp = c.meteo[["air.temperature.max"]],
+        mintemp = c.meteo[["air.temperature.min"]],
+        avgVapPre = c.meteo[["vapor.pressure.mean"]],
+        avgWinSpe = c.meteo[["wind.speed.mean"]],
+        prec = c.meteo[["precipitation"]],
+        streamflow = 0
+      )
+      
+      # prepare timeseries with precipitation
+      df.precFile <- data.frame(
+        year = as.numeric(format(c.prec$timestamp, "%Y")),
+        month = as.numeric(format(c.prec$timestamp, "%m")),
+        day = as.numeric(format(c.prec$timestamp, "%d")),
+        interval = as.numeric(format(c.prec$timestamp, "%H")) + 1,
+        prec = c.prec$mean,
+        streamflow = -1
+      )
+      
+      # run BROOK90 for catchment parameter list
+      c.soilmoist <- setNames(x.brook90.run.catchment(c.param=c.param, df.meteoFile=df.meteoFile, df.precFile=df.precFile, parallel=T), c("date", c.id))
+      if(is.null(soilmoist)) soilmoist <- c.soilmoist else soilmoist <- merge(soilmoist, c.soilmoist, by="date", all.x=T)
+    
+    }, error = function(err) {
+      warning(err)
+    })
+  }
+  
+  return(soilmoist)
 }

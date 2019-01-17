@@ -708,7 +708,7 @@ x.app.brook90 <- function(c.ids,
       if(lcover.other > .25*area) warning("Land cover 'Other' is 25%-50% of area")
       
       # remove classes with Other
-      c.param$characteristics <- c.param$characteristics[!c.param$characteristics$Sl_USDA %in% c(" ", "Other") && c.param$characteristics$Sl_USDA != "Others", ]
+      c.param$characteristics <- c.param$characteristics[!c.param$characteristics$Sl_USDA %in% c(" ", "Other") & c.param$characteristics$lcover != "Others", ]
       
       # get OSW station measurements from OSW
       for(p in osw.params) {

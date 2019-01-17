@@ -222,7 +222,7 @@ x.brook90.params <- function(catchment) {
   
   #check area sum to warn for non-fully-covered catchment
   if(abs(catchment$Area_sqkm - sum(df.stats$area_sqkm)) > 0.1)
-    warning("catchment area is not fully covered")
+    warning(paste("catchment area for", catchment$GKZ, "is not fully covered"))
   
   # get height stats
   dgm.stats <- xtruso::xtruso.catchments.stat.dgm
@@ -268,7 +268,7 @@ x.brook90.measurements <- function(catchment,
                                  t.end,
                                  max.radius = c(50,200,1000),
                                  max.num = 10,
-                                 max.t = NA,
+                                 max.t = t.end - 60*60*24,
                                  max.deltaH = 200,
                                  intermediate = F) {
   
@@ -314,11 +314,11 @@ x.brook90.measurements <- function(catchment,
   weights <- weights.inv / sum(weights.inv) 
   
   # compute weighted mean
-  measurements.day.combined[[paste0(p.id,".mean")]] <- rowSums(measurements.day.combined[, grep("mean.", names(measurements.day.combined))] * weights)
+  measurements.day.combined[[paste0(p.id,".mean")]] <- rowSums(measurements.day.combined[, grep("mean.", names(measurements.day.combined)), drop=FALSE] * weights)
   
   # add min and max measurements
-  measurements.day.combined[[paste0(p.id,".max")]] <- rowMeans(measurements.day.combined[, grep("max.", names(measurements.day.combined))], na.rm=T)
-  measurements.day.combined[[paste0(p.id,".min")]] <- rowMeans(measurements.day.combined[, grep("min.", names(measurements.day.combined))], na.rm=T)
+  measurements.day.combined[[paste0(p.id,".max")]] <- rowMeans(measurements.day.combined[, grep("max.", names(measurements.day.combined)), drop=FALSE], na.rm=T)
+  measurements.day.combined[[paste0(p.id,".min")]] <- rowMeans(measurements.day.combined[, grep("min.", names(measurements.day.combined)), drop=FALSE], na.rm=T)
   
   # filter date, mean, min and max
   measurements.day.combined <- measurements.day.combined[, c("date", paste0(p.id, c(".mean",".max",".min")))]

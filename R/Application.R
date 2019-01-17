@@ -661,10 +661,17 @@ x.app.station.dc <- function(s.id,
 #' run BROOK90 model for selected catchment
 #' 
 #' @param c.id catchment identifier(s)
+#' @param ts.results list of result parameters from BROOK90 model
+#' @param weighted.avg logical: return only weighted average for single parameter combinations based on their area
+#' @param write.out write result for each catchment to specified folder
 #' @return BROOK90 soil moisture
 #' @export
 #' 
-x.app.brook90 <- function(c.ids) {
+x.app.brook90 <- function(c.ids, 
+                          ts.results = c("swatt"),
+                          weighted.avg = TRUE,
+                          write.folder = NA,
+                          ncdf.folder = "/ncdf") {
   
   soilmoist <- NULL
   osw.cache <- list()
@@ -717,7 +724,7 @@ x.app.brook90 <- function(c.ids) {
         "vapor.pressure.mean" = x.brook90.vaporPressure(unlist(c.ts[["air temperature"]]["air.temperature.mean"]), unlist(c.ts[["relative humidity"]]["relative.humidity.mean"] / 100)))
       
       # get radar precipitation
-      c.prec <- x.app.radolan.timeseries(ncdf.folder = "D:/Geodaten/RADOLAN/NetCDF", t.start=t.start, t.end=t.end, extent=catchment)
+      c.prec <- x.app.radolan.timeseries(ncdf.folder=ncdf.folder, t.start=t.start, t.end=t.end, extent=catchment)
       c.prec$timestamp <- as.POSIXct(as.numeric(levels(c.prec$timestamp))[c.prec$timestamp], origin="1970-01-01", tz="UTC")
       c.ts[["precipitation"]] <- setNames(as.data.frame(stats::aggregate(c.prec$mean, list(as.Date(c.prec$timestamp)), sum)), c("date", "precipitation"))
       
@@ -755,9 +762,15 @@ x.app.brook90 <- function(c.ids) {
       )
       
       # run BROOK90 for catchment parameter list
-      c.soilmoist <- setNames(x.brook90.run.catchment(c.param=c.param, df.meteoFile=df.meteoFile, df.precFile=df.precFile, parallel=T), c("date", c.id))
-      if(is.null(soilmoist)) soilmoist <- c.soilmoist else soilmoist <- merge(soilmoist, c.soilmoist, by="date", all.x=T)
-    
+      c.soilmoist <- x.brook90.run.catchment(c.param=c.param, df.meteoFile=df.meteoFile, df.precFile=df.precFile, parallel=T, ts.results=ts.results, weighted.avg=weighted.avg)
+      names(c.soilmoist)[-1] <- paste(c.id, names(c.soilmoist)[-1], sep="_")
+      
+      if(is.na(write.folder)) {
+        if(is.null(soilmoist)) soilmoist <- c.soilmoist else soilmoist <- merge(soilmoist, c.soilmoist, by="date", all.x=T)
+      } else {
+        write.table(c.soilmoist, file=paste0(write.folder, "/", c.id, ".csv"), dec=".", sep=",", row.names=F)
+      }
+
     }, error = function(err) {
       warning(err)
     })

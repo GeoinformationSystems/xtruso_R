@@ -105,7 +105,7 @@ RMINF<-function (T1, T2){
 #************************************************************************
 SUMI<-function (N, A1, A2, A3, A4, A5, A6, B1, B2, B3, B4, B5, B6){
   #array summer; sums Aj(i) for i = 1,n with result in Bj
-  B<-rep(0,N)
+  B<-rep(0,6)
   #ListB<-  ZERO(B1, B2, B3, B4, B5, B6)
   for( i in 1:N){
     B[1] <- B[1] + A1[i]
@@ -378,7 +378,7 @@ INTER<-function(RFAL, PINT, LAI, SAI, FRINTL, FRINTS, CINTRL, CINTRS, DTP, INTR,
 
 #**************************************************************************
 INTER24<-function(RFAL, PINT, LAI, SAI, FRINTL, FRINTS, CINTRL, CINTRS, DURATN, INTR, RINT, IRVP, MONTHN){
-  #rain interception with duration in hours, used when NPINT% = 1
+    #rain interception with duration in hours, used when NPINT% = 1
   #same routine is used for snow interception, with different calling variables
   #input
   #   RFAL      24-hour average rainfall rate, mm/d
@@ -1088,14 +1088,14 @@ WEATHER<-function(TMAX, TMIN, DAYLEN, I0HDAY, EA, UW, ZA, DISP, Z0, WNDRAT, FETC
   EA<<-unlist(esat[1])
   }
   #if no wind data, use value from frmmainb90 - Measured wind of zero must be input as 0.1, a problem
-  if (UW == 0) UW <<-0.1
+  if (UW == 0) assign("UW", .1) #UW <<-0.1
   #if wind < 0.2 m/s, set to 0.2 to prevent zero divide
-  if (UW < 0.2) UW <<- 0.2
+  if (UW < 0.2) assign("UW", .2) #UW <<- 0.2
   #adjust wind speed from weather station to ZA
   if (Z0W < 0.000001) {
-    UA <<- UW
+    assign("UA", UW) #UA <<- UW
   }else{
-    UA <<- UW * WNDADJ(ZA, DISP, Z0, FETCH, ZW, Z0W)
+    assign("UA", UW * WNDADJ(ZA, DISP, Z0, FETCH, ZW, Z0W)) #UA <<- UW * WNDADJ(ZA, DISP, Z0, FETCH, ZW, Z0W)
   }
   #daytime and nighttime average wind speed
   UADTM <<- UA / (DAYLEN + (1 - DAYLEN) * WNDRAT)
@@ -2201,8 +2201,7 @@ MSBSETVARS<-function(){
 }
 
 subdatafileline<-function(row){
-  
-  YY<<- MData[[1]][row]
+  YY <<- MData[[1]][row]
   #change two-digit year to four-digit
   if( YY < 100){
     if (YY > 20){
@@ -2647,7 +2646,6 @@ daccum<-function(){
   
   #sum flows for day from components
   summii<-SUMI(NLAYER, BYFLDI, INFLDI, DSFLDI, TRANDI, DUMM, DUMM, BYFLD, INFLD, DSFLD, TRAND, dummy, dummy)
-  
   BYFLD<<-unlist(summii[1])
   INFLD<<-unlist(summii[2])
   DSFLD<<-unlist(summii[3])
@@ -2902,7 +2900,7 @@ rsnod <- NULL
 #' @author R.Kronenberg as RK [06112017]  based on Brook90 by Federer et.al
 #' @author TU Dresden, Institut für Hydrologie und Meteorologie, Professur für Meteorologie, 2017
 execute <- function(){
-  print("hello")
+  
   #B90<-function(){   ANMACHEN WIEDER
   #called and returned only from one location in msbrunB990
   
@@ -2980,10 +2978,10 @@ execute <- function(){
     #DOY <<- as.POSIXlt(paste(sprintf("%02d", DOM),sprintf("%02d", MONTHN),YEARN,sep=""), format = "%d%m%y")$yday+1  
     
     
-    MONTHN = as.numeric(MData[[2]][IDAY])
-    DOM = as.numeric(MData[[3]][IDAY])
+    MONTHN <<- as.numeric(MData[[2]][IDAY])
+    DOM <<- as.numeric(MData[[3]][IDAY])
     #NPINT =1
-    DOY = DOY=DOYF(DOM,MONTHN,DAYMO)
+    DOY <<- DOYF(DOM,MONTHN,DAYMO)
     if (fnleap()) {
       DAYMO[2] <<- 29
     } else{
@@ -3214,10 +3212,10 @@ execute <- function(){
         #     calculate SLFLI vertical macropore infiltration out of layer
         SLFLI[1] <<- SLFL - INFLI[1] - BYFLI[1]
         for (i in 2:ILAYER){ # does not execute if ILAYER% = 1 or 0
-          SLFLI[i] <<- SLFLI[i - 1] - INFLI[i] - BYFLI[i]
+          if(i > 1) SLFLI[i] <<- SLFLI[i - 1] - INFLI[i] - BYFLI[i]
         }
         for( i in (ILAYER + 1):NLAYER){ # does not execute if NLAYER% < ILAYER% + 1
-          SLFLI[i] <<- 0
+          if(NLAYER >= (ILAYER + 1)) SLFLI[i] <<- 0
         }
         #
         #     integrate below ground storages over iteration interval
@@ -3310,7 +3308,10 @@ execute <- function(){
       #yaccum()
       #  set up for next month
       zmonth()
-      MONTHN <<- MONTHN + 1
+      
+      #MONTHN <<- MONTHN + 1
+      assign("MONTHN", MONTHN + 1) #assign to current environment
+      
       DOM <<- 0
       NITSM <<- 0
     }  #for end of month

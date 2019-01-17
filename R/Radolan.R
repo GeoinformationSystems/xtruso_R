@@ -120,7 +120,7 @@ x.radolan.read <- function(radolan.files,
   
   #set radolan file(s) for folder
   radolan.files <- if(!any(startsWith(radolan.files, c("http://", "https://", "ftp://"))) && dir.exists(radolan.files)) {
-    list.files(radolan.path, pattern=gsub("%%time%%", "(.*)", file.pattern), full.names=TRUE)
+    list.files(radolan.files, pattern=gsub("%%time%%", "(.*)", file.pattern), full.names=TRUE)
   } else radolan.files
   
   if(length(radolan.files) == 0)
@@ -365,7 +365,7 @@ x.radolan.overlay <- function(polygon,
                               raster = xtruso::xtruso.radolan.sample) {
   
   #get zonal overlay
-  overlap <- x.zonal.overlap(raster, polygon, polygons.id="GKZ", parallel=F)
+  overlap <- x.zonal.overlap(raster, polygon, polygon.id="GKZ", parallel=F)
   
   #get col and row indices spanning the polygon
   index.col <- c(min(overlap$col) : max(overlap$col))
@@ -669,7 +669,7 @@ x.radolan.ncdf.update <- function(ncdf.file,
     
     #if null, try to get RADOLAN raster online
     if(is.null(radolan.raster))
-      radolan.raster <- x.radolan.get(radolan.configuration$dwd.root, radolan.configuration$type, timestamp = row[["timestamp"]])
+      radolan.raster <- x.radolan.get(radolan.configuration$dwd.root, radolan.configuration$type, timestamp = row[["timestamp"]], zipped = TRUE)
     
     #write to NetCDF
     if(!is.null(radolan.raster)) {

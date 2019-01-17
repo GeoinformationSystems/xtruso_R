@@ -1,17 +1,24 @@
-#' get default BROOK90 model environment
+#' Get BROOK90 model environment
 #'
-BROOK90.getEnvironment <- function(vars = list()){
-  return(xtruso::brook90.environment)
-}
-
-
-#' reset BROOK90 model parameters
-#'
-#' @param params list with BROOK90 variables to be redefined
-BROOK90.resetParams <- function(envir, params = list()) {
-  for(param in names(params)){
-    envir[[param]] <- params[[param]]
+#' @param envir start environment
+#' @param params list with individual BROOK90 parameters to be redefined
+#' 
+x.brook90.getEnvironment <- function(envir = NA, 
+                                     params = list()) {
+  
+  # create new environment for BROOK90
+  if(is.na(envir)) {
+    envir = new.env()
+    for(n in ls(xtruso::brook90.environment, all.names=TRUE)) assign(n, get(n, xtruso::brook90.environment), envir)
+    source("./data-raw/brook90.utility.R", local=envir)
   }
+  
+  # redefine environment parameters
+  for(param in names(params)){
+    if(param %in% names(envir)) envir[[param]] <- params[[param]] else warning(paste("Unknown parameter:", param, "(is not set)"))
+  }
+  
+  return(envir)
 }
 
 
@@ -20,24 +27,168 @@ BROOK90.resetParams <- function(envir, params = list()) {
 #' @param envir BROOK90 model environment
 #' @param df.meteoFile meteorological data required for BROOK90
 #' @param df.precFile precipitation data required for BROOK90
-BROOK90.run <- function(envir = xtruso::brook90.environment, 
-                        df.meteoFile, 
-                        df.precFile) {
+#' 
+x.brook90.run <- function(envir,
+                          df.meteoFile, 
+                          df.precFile) {
   
-  #set measurement input
-  envir$MData <- matrix(meteoFile)
-  envir$MhhData <- matrix(precFile)
-  #execute model
+  # set measurement input
+  envir$MData <- matrix(df.meteoFile)
+  envir$MhhData <- matrix(df.precFile)
+  
+  # execute model within provided model environment
   envir$execute()
+
+}
+
+
+#' Sample plot for an executed BROOK90 model
+#'
+#' @param envir BROOK90 model environment (post-run)
+#' @param filename plot image file (if NA, the main device is used)
+#' 
+x.brook90.plot <- function(envir,
+                         filename = NA) {
+  
+  if(!(all(c("swatt","precc","evpp") %in% names(envir))))
+    stop("Environment does not contain swatt, precc and/or evpp")
+  
+  if(!(is.na(path))) png(filename=path, width=1200, height=1200)
+  
+  plot(1:envir$NDAYS, envir$swatt[1:envir$NDAYS], ylim=c(0,max(envir$swatt)), col="red", type="l", lwd=3, xlab="Tage [d]", ylab="Werte [mm/d]")
+  points(1:envir$NDAYS, envir$precc, col="darkblue", lwd=3)
+  lines(1:envir$NDAYS, envir$evpp, col="green", lwd=3)
+  
+  if(!(is.na(path))) dev.off()
+  
+}
+
+
+#' Execute BROOK90 model based on catchment parameters
+#'
+#' @param c.param catchment parameter set
+#' @param df.meteoFile meteorological measurement input
+#' @param df.precFile precipitation input
+#' @param parallel logical: enable parallel execution with foreach
+#' @param ts.results list of result parameters from BROOK90 model
+#' @param weighted.avg logical: return only weighted average for single parameter combinations based on their area
+#' 
+x.brook90.run.catchment <- function(c.param, 
+                                    df.meteoFile,
+                                    df.precFile,
+                                    parallel = TRUE,
+                                    ts.results = c("swatt"),
+                                    weighted.avg = TRUE) {
+  
+  # init catchment parameters
+  params = list()
+  params$LAT <- c.param$latitude * pi / 180 # lat in radians
+  params$DTIMAX <- 0.5 # 2 iterations per day (value significantly impacts runtime)
+  params$ESLOPE <- c.param$slope_mean * pi / 180 # slope in radians
+  params$ESLOPED <- c.param$slope_mean # slope in degree
+  #params$SUBDAYDATA <- TRUE
+  #params$NPINT <- 24
+  
+  # init soil moisture data frame
+  soilmoist <- data.frame("date"=as.Date(paste(df.meteoFile$year, df.meteoFile$month, df.meteoFile$day, sep="-")))
+  
+  # iterate catchment parameter set and compute single soil moisture values for each combination
+  if (parallel && "doParallel" %in% installed.packages()[, "Package"]) {
+    
+    require(doParallel, quietly = TRUE)
+    
+    #init parallel environment
+    cl <- makeCluster(parallel::detectCores() - 1)
+    doParallel::registerDoParallel(cl)
+    
+    #extract values for each polygon
+    soilmoist.tmp <- foreach::foreach(i=1:nrow(c.param$characteristics), .combine=cbind) %dopar% {
+      
+      # execute model
+      df <- data.frame(x = x.brook90.run.catchment.sub(params=params, 
+                                                   c.param=c.param$characteristics[i, ], 
+                                                   flow="topdown",
+                                                   df.meteoFile=df.meteoFile, 
+                                                   df.precFile=df.precFile,
+                                                   ts.results=ts.results))
+      names(df) <- paste0(ts.results,i)
+      
+      # return soil moisture ts
+      return(df)
+    }
+    
+    #stop cluster
+    parallel::stopCluster(cl)
+    soilmoist <- cbind(soilmoist, soilmoist.tmp)
+    
+    #sequential execution in a for loop
+  } else {
+    
+    #extract values for each polygon
+    for(i in 1:nrow(c.param$characteristics)) {
+      
+      # execute model
+      ts <- x.brook90.run.catchment.sub(params=params, 
+                                        c.param=c.param$characteristics[i, ], 
+                                        flow="topdown",
+                                        df.meteoFile=df.meteoFile, 
+                                        df.precFile=df.precFile,
+                                        ts.results=ts.results)
+      
+      # append result for timestamp
+      soilmoist[paste0(ts.results,i)] <- ts
+      
+    }
+  }
+  
+  # get weighted average based on total area
+  weights <- c.param$characteristics$area_sqkm / sum(c.param$characteristics$area_sqkm)
+  for(ts.result in ts.results){
+    soilmoist[paste0(ts.result,"_avg")] <- apply(soilmoist[grep(ts.result, names(soilmoist))], 1, FUN = function(x) { sum(x * weights) })
+  }
+  
+  if(weighted.avg) return(soilmoist[, c("date", paste0(ts.results,"_avg"))]) else return(soilmoist)
+}
+
+
+#' subroutine for x.brook90.run.catchment - computes single soil moisture for single combination of landcover, soil and flow
+#' 
+#' @param params list with individual BROOK90 parameters to be redefined
+#' @param c.param catchment characteristics
+#' @param flow flow type
+#' @param df.meteoFile meteorological input 
+#' @param df.precFile precipitation input
+#' @param ts.results list of result parameters from BROOK90 model
+#' @return soil moisture timeseries
+#' 
+x.brook90.run.catchment.sub <- function(params=params,
+                                        c.param,
+                                        flow,
+                                        df.meteoFile,
+                                        df.precFile,
+                                        ts.results = c("swatt")) {
+  
+  # init model environment
+  params <- x.brook90.param.landcover(params=params, lcover=c.param$lcover)
+  params <- x.brook90.param.soil(params=params, soiltype=c.param$Sl_USDA, thickness=c.param$mae*1000, stonef=c.param$sk/100, nLayer=10)
+  params <- x.brook90.param.flow(params=params, flow=flow)
+  envir <- x.brook90.getEnvironment(params=params)
+  
+  # run BROOK90 model
+  x.brook90.run(envir, df.meteoFile, df.precFile)
+  
+  # return soil moisture ts
+  return(mget(ts.results, envir))
+  
 }
 
 
 #' Sample plot of a BROOK90 model result
 #'
 #' @param envir BROOK90 model environment
-BROOK90.plot <- function(envir){
+x.brook90.plot <- function(envir){
   
-  plot(1:envir$NDAYS, envir$floww[1:envir$NDAYS], col="red", type="l", lwd=3, ylim=c(0.0, 70), xlab="Tage [d]", ylab="Werte [mm/d]") #,xlim=c(IDAY,NDAYS+1))
+  plot(1:envir$NDAYS, envir$swatt[1:envir$NDAYS], col="red", type="l", lwd=3, xlab="Tage [d]", ylab="Werte [mm/d]") #,xlim=c(IDAY,NDAYS+1))
   
   PrecBound <- 10 #mm
   #points(IDAY,PTRAN,col="black",pch="?")
@@ -55,111 +206,387 @@ BROOK90.plot <- function(envir){
 }
 
 
-#' Sample BROOK90 parameter changeset for the Wernersbach catchment
+#' Get catchment parameters required for BROOK90 run
+#' 
+#' @param catchment input catchment
+#' @return data.frame with parameters
+#' 
+x.brook90.params <- function(catchment) {
+  
+  params <- list()
+  
+  # get catchment parameters on soil and land cover
+  df.stats <- xtruso::xtruso.catchments.stat.b90
+  df.stats <- df.stats[df.stats$GKZ == catchment$GKZ, ]
+  params[["characteristics"]] <- df.stats
+  
+  #check area sum to warn for non-fully-covered catchment
+  if(abs(catchment$Area_sqkm - sum(df.stats$area_sqkm)) > 0.1)
+    warning("catchment area is not fully covered")
+  
+  # get height stats
+  dgm.stats <- xtruso::xtruso.catchments.stat.dgm
+  params[["height_mean"]] <- dgm.stats[dgm.stats$GKZ == catchment$GKZ, "MEAN"] / 100
+  params[["height_min"]] <- dgm.stats[dgm.stats$GKZ == catchment$GKZ, "MIN"] / 100
+  params[["height_max"]] <- dgm.stats[dgm.stats$GKZ == catchment$GKZ, "MAX"] / 100
+  params[["slope_mean"]] <- dgm.stats[dgm.stats$GKZ == catchment$GKZ, "MEAN.SLOPE"]
+  
+  # get latitude
+  params[["latitude"]] <- mean(catchment@bbox["y",])
+  
+  return(params)
+  
+}
+
+
+#' Get daily measurements required for BROOK90 run
+#' 
+#' @param catchment input catchment
+#' @param c.height height of the catchment
+#' @param osw.stations OSW stations point dataframe
+#' @param osw.phenomenon reuqested phenomenon
+#' @param osw.ts OSW timeseries cache
+#' @param osw.url OSW API Url
+#' @param osw.network OSW network
+#' @param t.start start date for measurements
+#' @param t.end end date for measurements
+#' @param max.radius max search radius in km
+#' @param max.num max number of stations
+#' @param max.t max timestamp
+#' @param max.deltaH maximum height difference between stations
+#' @param intermediate logical: provide intermediate information (stations, raw measurements)
+#' @return list with stations and corresponding measurements
+#' 
+x.brook90.measurements <- function(catchment,
+                                 c.height,
+                                 osw.stations,
+                                 osw.phenomenon,
+                                 osw.cache,
+                                 osw.url,
+                                 osw.network,
+                                 t.start,
+                                 t.end,
+                                 max.radius = c(50,200,1000),
+                                 max.num = 10,
+                                 max.t = NA,
+                                 max.deltaH = 200,
+                                 intermediate = F) {
+  
+  #get closest stations for phenomen
+  for(r in max.radius) {
+    osw.closest <- x.osw.closest(osw.stations, osw.url, osw.phenomenon, catchment, r, max.num, max.t, c.height, max.deltaH)
+    if(length(osw.closest) > 0) break
+  }
+  if(length(osw.closest) == 0)
+    stop(paste("Could not find stations for", osw.phenomenon))
+  
+  #set station index
+  osw.closest$index <- 1:nrow(osw.closest)
+  
+  #get measurements
+  measurements <- list()
+  for(i in osw.closest$index) {
+    osw.id <- paste0(osw.closest[i, ]$networkCode, osw.closest[i, ]$deviceCode, osw.closest[i, ]$sensorCode)
+    if(!(osw.id %in% names(osw.cache))) osw.cache[[osw.id]] <- x.osw.get(osw.url, osw.closest[i, ]$networkCode, osw.closest[i, ]$deviceCode, osw.closest[i, ]$sensorCode, t.start, t.end)
+    m <- osw.cache[[osw.id]]
+    if(nrow(m) > 0)
+      measurements[[paste0("s.", i)]] <- m
+  }
+  
+  #aggregate by day (min, max, mean)
+  measurements.day <- list()
+  dist = c()
+  for(i in osw.closest$index) {
+    index <- paste0("s.", i)
+    if(index %in% names(measurements)){
+      measurements.day[[index]] <- as.data.frame(as.list(stats::aggregate(measurements[[index]]$v, list(as.Date(measurements[[index]]$begin)), FUN=function(x) c(mean=mean(x, na.rm=T), max=max(x, na.rm=T), min=min(x, na.rm=T)))))
+      names(measurements.day[[index]]) <- c("date", paste0("mean.",index), paste0("max.",index), paste0("min.",index))
+      dist <- c(dist, osw.closest[i,]$dist)
+    }
+  }
+  
+  #combine measurements in a dataframe
+  p.id <- gsub(" ", ".", osw.phenomenon)
+  measurements.day.combined <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, suffixes=c(1,2)), measurements.day)
+  
+  # set inverse weights
+  weights.inv <- 1 / dist ^ 2
+  weights <- weights.inv / sum(weights.inv) 
+  
+  # compute weighted mean
+  measurements.day.combined[[paste0(p.id,".mean")]] <- rowSums(measurements.day.combined[, grep("mean.", names(measurements.day.combined))] * weights)
+  
+  # add min and max measurements
+  measurements.day.combined[[paste0(p.id,".max")]] <- rowMeans(measurements.day.combined[, grep("max.", names(measurements.day.combined))], na.rm=T)
+  measurements.day.combined[[paste0(p.id,".min")]] <- rowMeans(measurements.day.combined[, grep("min.", names(measurements.day.combined))], na.rm=T)
+  
+  # filter date, mean, min and max
+  measurements.day.combined <- measurements.day.combined[, c("date", paste0(p.id, c(".mean",".max",".min")))]
+  
+  #compile and return measurements
+  if(intermediate) return(list(stations = osw.closest,
+              measurements = measurements,
+              measurements.day = measurements.day,
+              measurements.day.combined = measurements.day.combined,
+              osw.cache = osw.cache))
+  return(measurements.day.combined)
+  
+}
+
+
+#' Get land cover parameters
 #'
-#' @return BROOK90 parameters to be redefined
-BROOK90.getParams.Wernersbach <- function() {
+#' @param params list with BROOK90 parameters
+#' @param landcover land cover ("Coniferous Forest", "Grass Land", "Cultivated" or "Deciduous Forest")
+#' @return updated parameter list
+#' 
+x.brook90.param.landcover <- function(params = list(),
+                                    lcover) {
   
-  ML <- xtruso::brook90.environment$ML
+  if(missing(lcover))
+    stop("Missing landcover information.")
   
-  #Wernersbach changeset
-  changeset <- list()
-  changeset$ALB <- 0.07 # * albedo with no snow
-  changeset$ALBSN <- 0.3 # * albedo with snow on the ground
-  BEXP<-rep(0, ML) #* exponent for psi-theta relation
-  BEXP[1] <- 5.37433
-  BEXP[2] <- 4.03320
-  BEXP[3] <- 5.64096
-  BEXP[4] <- 6
-  BEXP[5] <- 5
-  changeset$BEXP <- BEXP
-  changeset$BYPAR <- 1 #* 1 to allow BYFL, or 0 to prevent BYFL
-  changeset$CR <- 0.5 #* light extinction coefficient for projected LAI + SAI
-  changeset$DENSEF <- 0.8580571 #* density or thinning multiplier for MAXLAI,CS,RTLEN,RPLANT, not <.001
-  changeset$DRAIN <- 0.626259 #* multiplier of VFLUX(n) for drainage to groundwater
-  changeset$DTI <- 0 #time step for iteration interval, d
-  changeset$DTIMAX <- 0.5 #* maximum iteration time step, d
-  changeset$DTINEW <- 0.0 #second estimate of DTI
-  changeset$DURATN <- c(4,4,4,4,4,4,4,4,4,4,4,4) #* average duration of daily precip by month, hr
-  changeset$ESLOPED <- 2 #* slope for evapotranspiration and snowmelt, degrees
-  changeset$GLMAXC <- 0.494377 # * maximum leaf conductance, cm/s
-  changeset$GSP <- 0.085 #* fraction of discharge to seepage
-  changeset$GWATIN <- 20 #**** initial groundwater storage below soil layers, mm
-  changeset$mnuhalfiter <- FALSE
-  changeset$IDEPTH <- 1000 #* depth over which infiltration is distributed
-  changeset$IMPERV <- 0.025 #* impervious fraction of area for SRFL
-  changeset$INFEXP <- 0.8797636 #* infiltration exponent, 0-all to top to 1-uniform with depth
-  changeset$IRVPY <- 0 #evaporation of intercepted rain, mm
-  KF <- rep(0, ML) #* hydraulic conductivity at field capacity, mm/d
-  KF[1] <- 6.9
-  KF[2] <- 2.7
-  KF[3] <- 2.9
-  KF[4] <- 1
-  KF[5] <- 3.5
-  changeset$KF <- KF
-  changeset$KSNVP <- 0.009734 #* multiplier to fix snow evaporation problem
-  changeset$LATD <- 50.5 #**** latitude, degrees
-  changeset$LWIDTH <- 0.004 #* leaf width, m
-  changeset$MAXLAI <- 7.693270 #* maximum projected leaf area index for the year, m2/m2
-  changeset$MELFAC <- 1.728930 #* degree day melt factor for open, MJ m-2 d-1 K-1
-  changeset$MXKPL <- 7.03463 #* maximum plant conductivity, (mm/d)/MPa
-  changeset$MXRTLN <- 3000.001 #* maximum root length per unit land area, m/m2
-  changeset$NLAYER <- 5 #* number of soil layers to be used in model, <= ML
-  PSIF <- rep(0, ML) #* matric potential at field capacity, kPa
-  PSIF[1] <- -11.818
-  PSIF[2] <- -11.516 
-  PSIF[3] <- -10.22
-  PSIF[4] <- -10
-  PSIF[5] <- -10
-  changeset$PSIF <- PSIF
-  changeset$PSIMIN <- rep(-10, ML) # initial PSIM()
-  changeset$QFFC <- 0.00104 #  0.00104  #* quick flow fraction (SRFL or BYFL) at field capacity
-  changeset$QFPAR <- 0.834524 #0.834524    #* quick flow parameter (SRFL or BYFL)
-  changeset$QDEPTH <- 0.1 #* soil depth for SRFL calculation, 0 to prevent SRFL
-  changeset$RELHT <- c(1,1,366,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) #* ten pairs of DOY and relative canopy height
-  changeset$RELLAI <- c(1,1,366,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0) #* ten pairs of DOY and relative LAI
-  changeset$ROOTDEN <- c(50,1,50,1,50,1,50,1,50,1,50,.3,50,.2,50,.1,50,.1,50,.1,50,0.0,50,0.0,50,0,50,0,50,0,50,0,50,0,50,0,50,0,50,0,50,0,50,0,50,0,50,0,50,0) #* 25 pairs of root layer thickness (mm) and relative root density per unit volume
-  changeset$RRD <- 0.55
-  changeset$RSTEMP <- -1.29978 #* base temperature for snow-rain transition, °C
-  changeset$SNOWIN <- 20 #**** initial water equivalent of snow on the ground, mm
-  STONEF<-rep(0.00, ML) #* stone volume fraction, unitless
-  STONEF[1] <- 0.02
-  STONEF[2] <- 0.2
-  STONEF[3] <- 0.25
-  STONEF[4] <- 0.25
-  STONEF[5] <- 0.7
-  changeset$STONEF <- STONEF
-  changeset$TH <- 40 #* temperature above which stomates are closed, degC
-  THETAF<-rep(0, ML) #* volumetric water content at field capacity
-  THETAF[1] <- 0.34062341
-  THETAF[2] <- 0.39705807  
-  THETAF[3] <- 0.24359704
-  THETAF[4] <- 0.35
-  THETAF[5] <- 0.23
-  changeset$THETAF <- THETAF
-  THICK<-rep(0, ML) #* layer thicknesses, mm
-  THICK[1] <- 50
-  THICK[2] <- 250
-  THICK[3] <- 300
-  THICK[4] <- 300
-  THICK[5] <- 100
-  changeset$THICK <- THICK
-  THSAT <- rep(0, ML) #* theta at saturation, matrix porosity
-  THSAT[1] <- 0.6313342
-  THSAT[2] <- 0.6189386
-  THSAT[3] <- 0.4930716
-  THSAT[4] <- 0.680
-  THSAT[5] <- 0.600
-  changeset$THSAT <- THSAT
-  WETINF <- rep(0, ML) #* wetness at dry end of near-saturation range
-  WETINF[1] <- 0.92
-  WETINF[2] <- 0.92
-  WETINF[3] <- 0.92
-  WETINF[4] <- 0.92
-  WETINF[5] <- 0.92
-  changeset$WETINF <- WETINF
-  changeset$Z0W <- 2.8 #* weather station roughness parameter, m
-  changeset$ZW <- 14 #* weather station measurement height for wind, m"
+  if(!(lcover %in% c("Coniferous Forest", "Grass Land", "Cultivated", "Deciduous Forest")))
+    stop(paste("Unrecognized landcover:", lcover, "(must be \"Coniferous Forest\", \"Grass Land\", \"Cultivated\" or \"Deciduous Forest\")"))
   
-  return(changeset)
+  # set land cover parameters
+  if(lcover == "Coniferous Forest") {
+    params$RELHT <- c(1,1,366,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+    params$RELLAI <- c(1,1,366,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+    params$ALB <- 0.14
+    params$ALBSN <- 0.14
+    params$KSNVP <- 0.3
+    params$Z0G <- 0.02
+    params$MAXHT <- 25 
+    params$MAXLAI <- 6 
+    params$MXRTLN <- 3100 
+    params$MXKPL <- 8 
+    params$FXYLEM <- 0.5
+    params$GLMAX <- 0.53 
+    params$LWIDTH <- 0.004 
+    params$CR <- 0.5
+    params$ROOTDEN <- c(100,.22,100,.17,100,.13,100,.1,100,.08,100,.06,100,.05,100,.04,100,.03,100,.02,100,.02,100,.01,100,.01,100,.01,100,.01,100,.01,100,.01,100,.01,100,.01,100,0,100,0,100,0,100,0,100,0,100,0)
+    
+  } else if(lcover == "Grass Land") {
+    params$RELHT <- c(1,.1,115,.1,145,1,268,1,298,1,366,.1,0,0,0,0,0,0,0,0)
+    params$RELLAI <- c(1,0,115,0,145,1,268,1,298,0,366,0,0,0,0,0,0,0,0,0)
+    params$ALB <- 0.2
+    params$ALBSN <- 0.5
+    params$KSNVP <- 1
+    params$Z0G <- 0.01
+    params$MAXHT <- .5 
+    params$MAXLAI <- 3 
+    params$MXRTLN <- 1000 
+    params$MXKPL <- 8 
+    params$FXYLEM <- 0
+    params$GLMAX <- 0.8 
+    params$LWIDTH <- 0.01 
+    params$CR <- 0.7
+    params$ROOTDEN <- c(100,.44,100,.25,100,.14,100,.08,100,.04,100,.02,100,.01,100,.01,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0)
+    
+  } else if(lcover == "Cultivated") {
+    params$RELHT <- c(1,0,100,0,213,1,278,1,308,0,366,0,0,0,0,0,0,0,0,0)
+    params$RELLAI <- c(1,0,100,0,213,1,278,1,308,0,366,0,0,0,0,0,0,0,0,0)
+    params$ALB <- 0.22
+    params$ALBSN <- 0.5
+    params$KSNVP <- 1
+    params$Z0G <- 0.005
+    params$MAXHT <- .3 
+    params$MAXLAI <- 3 
+    params$MXRTLN <- 110 
+    params$MXKPL <- 8 
+    params$FXYLEM <- 0
+    params$GLMAX <- 1.1 
+    params$LWIDTH <- .1 
+    params$CR <- 0.7
+    params$ROOTDEN <- c(100,.34,100,.22,100,.15,100,.1,100,.07,100,.04,100,.03,100,.02,100,.1,100,.1,100,.1,100,.1,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0,100,0)
+    
+  } else if(lcover == "Deciduous Forest") {
+    params$RELHT <- c(1,1,366,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+    params$RELLAI <- c(1,0,54,0,84,1,299,1,329,0,366,0,0,0,0,0,0,0,0,0)
+    params$ALB <- 0.18
+    params$ALBSN <- 0.23
+    params$KSNVP <- 0.3
+    params$Z0G <- 0.02
+    params$MAXHT <- 25 
+    params$MAXLAI <- 6 
+    params$MXRTLN <- 3000 
+    params$MXKPL <- 8 
+    params$FXYLEM <- 0.5
+    params$GLMAX <- 0.53 
+    params$LWIDTH <- 0.1 
+    params$CR <- 0.6
+    params$ROOTDEN <- c(100,.22,100,.17,100,.13,100,.1,100,.08,100,.06,100,.05,100,.04,100,.03,100,.02,100,.02,100,.01,100,.01,100,.01,100,.01,100,.01,100,.01,100,.01,100,.01,100,0,100,0,100,0,100,0,100,0,100,0)
+  }
+
+  return(params)
+  
+}
+
+
+#' Get soil parameters
+#'
+#' @param params list with BROOK90 parameters
+#' @param soil soil type information; triple with type ("Cl", "ClLo", "Lo", "LoSa", "Other", "Sa", "SaClLo", "SaLo", "SiClLo" or "SiLo"), thickness (in mm) and stone fraction (0..1)
+#' @param nlayer number of modelled layers (<= 25)
+#' @return updated parameter list
+#' 
+x.brook90.param.soil <- function(params = list(),
+                               soiltype,
+                               thickness = 1000,
+                               stonef = 0,
+                               nLayer = 10) {
+ 
+  if(missing(soiltype))
+    stop("Missing soil information.")
+  
+  if(!(soiltype %in% c("Cl", "ClLo", "Lo", "LoSa", "SaCl", "Sa", "SaClLo", "SaLo", "SiClLo", "SiLo")))
+    stop(paste("unrecognized soil type:", soiltype, "(must be \"Cl\", \"ClLo\", \"Lo\", \"LoSa\", \"Sa\", \"SaClLo\", \"SaLo\", \"SiClLo\" or \"SiLo\")"))
+  
+  # set default layer tickness and stonefraction
+  nLayerEmpty <- 25 - nLayer
+  params$NLAYER <- nLayer
+  params$THICK <- c(rep(as.numeric(thickness) / nLayer, nLayer), rep(0, nLayerEmpty))
+  params$STONEF <- c(rep(as.numeric(stonef), nLayer), rep(0, nLayerEmpty))
+  
+  # set soil parameters
+  if(soiltype == "Cl") {
+    params$PSIF <- c(rep(-7.7, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.425, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.482, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(11.4, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(4.31, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "ClLo") {
+    params$PSIF <- c(rep(-14.8, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.402, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.476, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(8.52, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(7.3, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "Lo") {
+    params$PSIF <- c(rep(-8.5, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.324, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.451, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(5.39, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(6.3, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "LoSa") {
+    params$PSIF <- c(rep(-3.8, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.203, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.41, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(4.38, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(3.5, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "Sa") {
+    params$PSIF <- c(rep(-7, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.188, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.395, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(4.05, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(4, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "SaCl") {
+    params$PSIF <- c(rep(-3.7, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.358, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.426, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(10.4, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(2.9, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "SaClLo") {
+    params$PSIF <- c(rep(-6.3, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.317, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.42, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(7.12, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(4.21, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "SaLo") {
+    params$PSIF <- c(rep(-7.9, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.266, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.435, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(4.9, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(5.5, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "SiCl") {
+    params$PSIF <- c(rep(-6.5, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.433, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.492, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(10.4, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(4.2, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "SiClLo") {
+    params$PSIF <- c(rep(-6, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.397, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.477, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(7.75, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(4.9, nLayer), rep(0, nLayerEmpty))
+    
+  } else if(soiltype == "SiLo") {
+    params$PSIF <- c(rep(-25, nLayer), rep(0, nLayerEmpty))
+    params$THETAF <- c(rep(.365, nLayer), rep(0, nLayerEmpty))
+    params$THSAT <- c(rep(.485, nLayer), rep(0, nLayerEmpty))
+    params$BEXP <- c(rep(5.3, nLayer), rep(0, nLayerEmpty))
+    params$KF <- c(rep(13.1, nLayer), rep(0, nLayerEmpty))
+  }
+  
+  return(params)
+   
+}
+
+
+#' Get soil parameters
+#'
+#' @param params list with BROOK90 parameters
+#' @param flow flow type ("topdown" or "uni500")
+#' @return updated parameter list
+#' 
+x.brook90.param.flow <- function(params = list(),
+                               flow) {
+  
+  if(missing(flow))
+    stop("Missing flow information.")
+  
+  if(!(flow %in% c("topdown", "uni500")))
+    stop(paste("unrecognized flow:", flow, "(must be \"topdown\" or \"uni500\")"))
+  
+  # set flow parameters
+  if(flow == "topdown") {
+    params$IDEPTH <- 0
+    params$INFEXP <- 0
+    params$IMPERV <- 0
+    params$BYPAR <- 0
+    params$QDEPTH <- 0
+    params$QFPAR <- 0
+    params$QFFC <- 0
+    params$DRAIN <- 1
+    params$GSC <- 0
+    params$GSP <- 0
+    
+  } else if(flow == "uni500") {
+    params$IDEPTH <- 500
+    params$INFEXP <- 1
+    params$IMPERV <- 0
+    params$BYPAR <- 0
+    params$QDEPTH <- 0
+    params$QFPAR <- 0
+    params$QFFC <- 0
+    params$DRAIN <- 1
+    params$GSC <- 0
+    params$GSP <- 0
+  }
+  
+  return(params)
+  
+}
+
+
+#' compute avg vapor pressure using the Magnus formula
+#' @param t_mean mean temperature for the day
+#' @param rh_mean mean relative humidity
+#' @return average vapur pressure
+#' 
+x.brook90.vaporPressure <- function(t_mean, 
+                                    rh_mean) {
+  
+  return (611.2 * exp( (17.62 * t_mean) / (t_mean + 243.12) ) * rh_mean * 0.001)
+  
 }

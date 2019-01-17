@@ -170,3 +170,48 @@ x.utility.parse.geojson <- function(s.geojson,
 }
 
 
+#'
+#' compute the great circle distance between two geographic coordinates (lat/lon) in km
+#' @param lon1 longitude of 1st point
+#' @param lat1 latitude of 1st point
+#' @param lon2 longitude of 2st point
+#' @param lat2 latitude of 2st point
+#' @param R radius of the sphere, default = 6371 (mean radius of the earth)
+#' @param is.degree flag: provided coords are in degree, not radians
+#' @return great circle distance in km
+#' @export
+#' 
+x.utility.gcd <- function(lon1, 
+                          lat1, 
+                          lon2, 
+                          lat2, 
+                          R=6371, 
+                          is.degree=T) {
+  
+  #convert to radians
+  if(is.degree){
+    lon1 <- lon1 * pi / 180
+    lat1 <- lat1 * pi / 180
+    lon2 <- lon2 * pi / 180
+    lat2 <- lat2 * pi / 180
+  }
+  
+  return(acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2) * cos(lon2-lon1)) * R)
+}
+
+
+#'
+#' get z-coodinate for feature (mean for 2D features)
+#' @param dem input elevation raster
+#' @param feature input feature (sp class)
+#' @return altitude
+#' @export
+#' 
+x.utility.zCoord <- function(dem, 
+                             feature) {
+  
+  return(as.numeric(raster::extract(dem, feature, weights=TRUE, fun=mean)))
+  
+}
+
+

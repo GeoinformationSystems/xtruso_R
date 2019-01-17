@@ -371,6 +371,7 @@ brook90.environment$RTHRM <- 0
 brook90.environment$RTHRY <- 0             #  rain throughfall, mm
 brook90.environment$RTLEN <- 0            #root length per unit land area, m/m2
 brook90.environment$RTRAD <- 0.35            #* average root radius, mm
+brook90.environment$RRD <- 0.55
 brook90.environment$RSC <- 0              #Shuttleworth-Wallace canopy surface resistance, s/m
 brook90.environment$RSNO <- 0             #rain added to snowpack, mm/d
 brook90.environment$RSNOD <- 0
@@ -516,10 +517,10 @@ brook90.environment$ZMINH <- 2            #* ZA minus HEIGHT, reference height a
 brook90.environment$ZW <- 10              #* weather station measurement height for wind, m"
 
 #load additional variables
-brook90.environment$SUBDAYDATA <- FALSE#TRUE#TRUE
+brook90.environment$SUBDAYDATA <- FALSE
 
 #load utility functions to environment
-source("./data-raw/brook90.utility.R", local = brook90.environment)
+#source("./data-raw/brook90.utility.R", local=brook90.environment)
 
 #save configurations
-devtools::use_data(brook90.environment, overwrite=T)
+usethis::use_data(brook90.environment, overwrite=T)

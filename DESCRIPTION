@@ -21,4 +21,6 @@ Suggests:
   ncdf4,
   R.utils,
   igraph,
-  rgeos
+  rgeos,
+  readr,
+  zoo

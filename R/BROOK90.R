@@ -311,10 +311,11 @@ x.brook90.measurements <- function(catchment,
   
   # set inverse weights
   weights.inv <- 1 / dist ^ 2
-  weights <- weights.inv / sum(weights.inv) 
   
   # compute weighted mean
-  measurements.day.combined[[paste0(p.id,".mean")]] <- rowSums(measurements.day.combined[, grep("mean.", names(measurements.day.combined)), drop=FALSE] * weights)
+  measurements.day.combined[[paste0(p.id,".mean")]] <- apply(measurements.day.combined[, grep("mean.", names(measurements.day.combined)), drop=FALSE], 1, function(x){
+    sum(x * weights.inv, na.rm=T) / sum(weights.inv[!is.na(x)])
+  })
   
   # add min and max measurements
   measurements.day.combined[[paste0(p.id,".max")]] <- rowMeans(measurements.day.combined[, grep("max.", names(measurements.day.combined)), drop=FALSE], na.rm=T)

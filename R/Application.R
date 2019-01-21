@@ -662,23 +662,23 @@ x.app.station.dc <- function(s.id,
 #' 
 #' @param c.id catchment identifier(s)
 #' @param ts.results list of result parameters from BROOK90 model
+#' @param t.start last timestamp for the model run
+#' @param t.end first timestamp for the model run
 #' @param weighted.avg logical: return only weighted average for single parameter combinations based on their area
 #' @param write.out write result for each catchment to specified folder
 #' @return BROOK90 soil moisture
 #' @export
 #' 
-x.app.brook90 <- function(c.ids, 
+x.app.brook90 <- function(c.ids,
                           ts.results = c("swatt"),
+                          t.start = Sys.Date(),
+                          t.end = as.POSIXct(format(t.end - 12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600,
                           weighted.avg = TRUE,
                           write.folder = NA,
                           ncdf.folder = "/ncdf") {
   
   soilmoist <- NULL
   osw.cache <- list()
-  
-  # set timestamp defaults
-  t.end <- as.POSIXct("2018-12-31", "%Y-%m-%d", tz="UTC")
-  t.start <- as.POSIXct(format(t.end - 12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600
   
   # set OSW defaults
   osw.url <- "https://api.opensensorweb.de/v0"
@@ -732,8 +732,14 @@ x.app.brook90 <- function(c.ids,
       c.ts[["refDate"]] <-  data.frame(date = as.Date(as.Date(t.start) : as.Date(t.end), origin="1970-01-01"))
       c.meteo <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, all.y=TRUE, suffixes=c(1,2)), c.ts)
       
-      # interpolate values, if required
-      c.meteo[, -1] <- apply(c.meteo[, -1], 2, function(x) {
+      # set NA to BROOK90 default
+      c.meteo[is.na(c.meteo[, "wind.speed.mean"]), "wind.speed.mean"] <- 0.1
+      c.meteo[is.na(c.meteo[, "global.radiation.mean"]), "global.radiation.mean"] <- 0
+      c.meteo[is.na(c.meteo[, "vapor.pressure.mean"]), "vapor.pressure.mean"] <- 0
+      c.meteo[is.na(c.meteo[, "precipitation"]), "precipitation"] <- 0 # not ideal, but avoids NA
+      
+      # interpolate temperature, if required
+      c.meteo[, c("air.temperature.min", "air.temperature.max")] <- apply(c.meteo[, c("air.temperature.min", "air.temperature.max")], 2, function(x) {
         zoo::na.approx(x)
       })
       

@@ -718,11 +718,6 @@ x.app.brook90 <- function(c.ids,
         c.ts[[p]] <- ts$measurements.day.combined
       }
       
-      # compute vapor pressure
-      c.ts[["vapor pressure"]] <- data.frame(
-        "date" = c.ts[["air temperature"]]["date"], 
-        "vapor.pressure.mean" = x.brook90.vaporPressure(unlist(c.ts[["air temperature"]]["air.temperature.mean"]), unlist(c.ts[["relative humidity"]]["relative.humidity.mean"] / 100)))
-      
       # get radar precipitation
       c.prec <- x.app.radolan.timeseries(ncdf.folder=ncdf.folder, t.start=t.start, t.end=t.end, extent=catchment)
       c.prec$timestamp <- as.POSIXct(as.numeric(levels(c.prec$timestamp))[c.prec$timestamp], origin="1970-01-01", tz="UTC")
@@ -731,6 +726,9 @@ x.app.brook90 <- function(c.ids,
       # combine meteorological measurements in a dataframe
       c.ts[["refDate"]] <-  data.frame(date = as.Date(as.Date(t.start) : as.Date(t.end), origin="1970-01-01"))
       c.meteo <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, all.y=TRUE, suffixes=c(1,2)), c.ts)
+      
+      # compute vapor pressure
+      c.meteo["vapor.pressure.mean"] <- x.brook90.vaporPressure(c.meteo["air.temperature.mean"], c.meteo["relative.humidity.mean"] / 100)
       
       # set NA to BROOK90 default
       c.meteo[is.na(c.meteo[, "wind.speed.mean"]), "wind.speed.mean"] <- 0.1
@@ -776,7 +774,7 @@ x.app.brook90 <- function(c.ids,
       } else {
         write.table(c.soilmoist, file=paste0(write.folder, "/", c.id, ".csv"), dec=".", sep=",", row.names=F)
       }
-
+      
     }, error = function(err) {
       warning(err)
     })

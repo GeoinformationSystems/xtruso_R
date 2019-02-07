@@ -696,6 +696,9 @@ x.app.brook90 <- function(c.ids,
       
       # get catchment parameters
       c.param <- x.brook90.params(catchment)
+      if(nrow(c.param$characteristics) == 0) 
+        stop(paste("Catchment", catchment$GKZ, "is not covered by this BROOK90 implementation"))
+      
       c.ts <- list()
       
       # check parameter list (warn and remove, if other > 25%, stop, if other > 50%)
@@ -714,8 +717,8 @@ x.app.brook90 <- function(c.ids,
       for(p in osw.params) {
         ts <- x.brook90.measurements(catchment=catchment, c.height=c.param$height_mean, osw.stations=osw.stations, osw.phenomenon=p, osw.cache=osw.cache, osw.url=osw.url, osw.network=osw.network, t.start=t.start, t.end=t.end, intermediate=TRUE)
         # update sensor cache
-        osw.cache <- ts$osw.cache
-        c.ts[[p]] <- ts$measurements.day.combined
+        if(!is.na(ts)) osw.cache <- ts$osw.cache
+        c.ts[[p]] <- if(is.na(ts)) NA else ts$measurements.day.combined
       }
       
       # get radar precipitation

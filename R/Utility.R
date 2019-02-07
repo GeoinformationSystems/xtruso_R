@@ -215,3 +215,33 @@ x.utility.zCoord <- function(dem,
 }
 
 
+#'
+#' get features from WFS
+#' @param wfsUrl WFS url
+#' @param version WFS version
+#' @param typename WFS layer
+#' @param propertyFilter list of property filters
+#' 
+x.utility.wfs.getFeature <- function(wfsUrl, 
+                                     version = "2.0", 
+                                     typename,
+                                     propertyFilter = list()) {
+  
+  # build request
+  request <- paste0(wfsUrl, "?service=wfs&request=GetFeature&version=", version, "&typename=", typename)
+  
+  # append property filter
+  if(length(propertyFilter) > 0){
+    filter <- paste0("<Filter xmlns=\"http://www.opengis.net/ogc\" xmlns:gml=\"http://www.opengis.net/gml\">", if(length(propertyFilter) > 1) "<And>" else "")
+    for(p in names(propertyFilter)) {
+      filter <- paste0(filter, "<PropertyIsEqualTo><PropertyName>", p, "</PropertyName><Literal>", propertyFilter[p], "</Literal></PropertyIsEqualTo>")
+    }
+    filter <- paste0(filter, if(length(propertyFilter) > 1) "</And>" else "", "</Filter>")
+    request <- paste0(request, "&filter=", filter)
+  }
+
+  # read data from WFS
+  response <- sf::st_read(utils::URLencode(request))
+  return(as(response, "Spatial"))
+  
+}

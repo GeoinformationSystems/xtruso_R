@@ -277,8 +277,10 @@ x.brook90.measurements <- function(catchment,
     osw.closest <- x.osw.closest(osw.stations, osw.url, osw.phenomenon, catchment, r, max.num, max.t, c.height, max.deltaH)
     if(length(osw.closest) > 0) break
   }
-  if(length(osw.closest) == 0)
-    stop(paste("Could not find stations for", osw.phenomenon))
+  if(length(osw.closest) == 0) {
+    warning(paste("Could not find stations for", osw.phenomenon, "in", catchment$GKZ))
+    return(NA)
+  }
   
   #set station index
   osw.closest$index <- 1:nrow(osw.closest)

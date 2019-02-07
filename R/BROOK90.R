@@ -279,7 +279,7 @@ x.brook90.measurements <- function(catchment,
   }
   if(length(osw.closest) == 0) {
     warning(paste("Could not find stations for", osw.phenomenon, "in", catchment$GKZ))
-    return(NA)
+    return(list(measurements.day.combined = NA))
   }
   
   #set station index

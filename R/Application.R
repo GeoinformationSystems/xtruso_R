@@ -717,8 +717,8 @@ x.app.brook90 <- function(c.ids,
       for(p in osw.params) {
         ts <- x.brook90.measurements(catchment=catchment, c.height=c.param$height_mean, osw.stations=osw.stations, osw.phenomenon=p, osw.cache=osw.cache, osw.url=osw.url, osw.network=osw.network, t.start=t.start, t.end=t.end, intermediate=TRUE)
         # update sensor cache
-        if(!is.na(ts)) osw.cache <- ts$osw.cache
-        c.ts[[p]] <- if(is.na(ts)) NA else ts$measurements.day.combined
+        if(!all(is.na(ts$measurements.day.combined))) osw.cache <- ts$osw.cache
+        c.ts[[p]] <- ts$measurements.day.combined
       }
       
       # get radar precipitation
@@ -738,6 +738,12 @@ x.app.brook90 <- function(c.ids,
       c.meteo[is.na(c.meteo[, "global.radiation.mean"]), "global.radiation.mean"] <- 0
       c.meteo[is.na(c.meteo[, "vapor.pressure.mean"]), "vapor.pressure.mean"] <- 0
       c.meteo[is.na(c.meteo[, "precipitation"]), "precipitation"] <- 0 # not ideal, but avoids NA
+      
+      # remove leading or training NAs in temperature
+      c.meteo <- c.meteo[cumsum(!is.na(c.meteo$air.temperature.mean)) != 0, ]
+      c.meteo.rev <- c.meteo[order(nrow(c.meteo):1),]
+      c.meteo.rev <- c.meteo.rev[cumsum(!is.na(c.meteo.rev$air.temperature.mean)) != 0, ]
+      c.meteo <- c.meteo.rev[order(nrow(c.meteo.rev):1),]
       
       # interpolate temperature, if required
       c.meteo[, c("air.temperature.min", "air.temperature.max")] <- apply(c.meteo[, c("air.temperature.min", "air.temperature.max")], 2, function(x) {

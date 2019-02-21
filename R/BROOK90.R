@@ -102,7 +102,7 @@ x.brook90.run.catchment <- function(c.param,
     doParallel::registerDoParallel(cl)
     
     #extract values for each polygon
-    soilmoist.tmp <- foreach::foreach(i=1:nrow(c.param$characteristics), .combine=cbind) %dopar% {
+    soilmoist.tmp <- foreach::foreach(i=1:nrow(c.param$characteristics), .combine=cbind, .packages="xtruso") %dopar% {
       
       # execute model
       df <- data.frame(x = x.brook90.run.catchment.sub(params=params, 

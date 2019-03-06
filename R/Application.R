@@ -672,7 +672,7 @@ x.app.station.dc <- function(s.id,
 x.app.brook90 <- function(c.ids,
                           ts.results = c("swatt"),
                           t.start = Sys.Date(),
-                          t.end = as.POSIXct(format(t.end - 12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600,
+                          t.end = as.POSIXct(format(t.end - 6*12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600,
                           weighted.avg = TRUE,
                           write.folder = NA,
                           ncdf.folder = "/ncdf") {

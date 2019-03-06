@@ -672,7 +672,7 @@ x.app.station.dc <- function(s.id,
 x.app.brook90 <- function(c.ids,
                           ts.results = c("swatt"),
                           t.start = Sys.Date(),
-                          t.end = as.POSIXct(format(t.end - 6*12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600,
+                          t.years = 6,
                           weighted.avg = TRUE,
                           write.folder = NA,
                           ncdf.folder = "/ncdf") {
@@ -685,6 +685,9 @@ x.app.brook90 <- function(c.ids,
   osw.network <- c("DWD","AMMS_WETTERDATEN")
   osw.stations <- x.osw.stations("https://search.opensensorweb.de/v0/sensor/_search", osw.network, extent = c(11,50,16,52))
   osw.params <- c("air temperature", "global radiation", "relative humidity", "wind speed")
+  
+  # set model runtime
+  t.end = as.POSIXct(format(t.start - t.years*12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600
   
   for(c.id in c.ids) {
     

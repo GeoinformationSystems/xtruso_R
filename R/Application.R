@@ -671,7 +671,7 @@ x.app.station.dc <- function(s.id,
 #' 
 x.app.brook90 <- function(c.ids,
                           ts.results = c("swatt"),
-                          t.start = Sys.Date(),
+                          t.end = Sys.time(),
                           t.years = 6,
                           weighted.avg = TRUE,
                           write.folder = NA,
@@ -687,7 +687,7 @@ x.app.brook90 <- function(c.ids,
   osw.params <- c("air temperature", "global radiation", "relative humidity", "wind speed")
   
   # set model runtime
-  t.end = as.POSIXct(format(t.start - t.years*12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600
+  t.start = as.POSIXct(format(t.end - t.years*12*31*24*60*60, "%Y-%m-%d"), tz="UTC") + 3600
   
   for(c.id in c.ids) {
     

@@ -16,6 +16,7 @@ usethis::use_data(xtruso.catchments.stat.b90, overwrite=T)
 
 #read srtm dem
 xtruso.dem.sn <- raster::raster("data-raw/srtm_sn.tif")
+xtruso.dem.sn <- raster::readAll(xtruso.dem.sn)
 
 #compute raster slope and assign to DGM stats
 terrain.stats <- read.table("data-raw/xtruso-catchments-stat-slope.csv", dec=",", sep=";", stringsAsFactors = F, header = T)

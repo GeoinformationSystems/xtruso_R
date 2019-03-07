@@ -168,9 +168,11 @@ x.osw.closest <- function(osw.stations,
   if(length(osw.stations) == 0) return(osw.stations)
   
   # select stations by deltaH
-  osw.stations$height <- x.utility.zCoord(xtruso::xtruso.dem.sn, osw.stations)
-  osw.stations <- osw.stations[abs(osw.stations$height - c.height) <= max.deltaH, ]
-  if(length(osw.stations) == 0) return(osw.stations)
+  if(!is.na(max.deltaH)) {
+    osw.stations$height <- x.utility.zCoord(xtruso::xtruso.dem.sn, osw.stations)
+    osw.stations <- osw.stations[abs(osw.stations$height - c.height) <= max.deltaH, ]
+    if(length(osw.stations) == 0) return(osw.stations)
+  }
   
   # select stations with latest t > max.t
   if(!is.na(max.t)){

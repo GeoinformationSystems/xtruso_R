@@ -718,7 +718,13 @@ x.app.brook90 <- function(c.ids,
       
       # get OSW station measurements from OSW
       for(p in osw.params) {
+        
+        # set max.deltaH for temperature measurements
+        max.deltaH <- if(p == "air temperature") 200 else NA
+        
+        # get measurements from OSW
         ts <- x.brook90.measurements(catchment=catchment, c.height=c.param$height_mean, osw.stations=osw.stations, osw.phenomenon=p, osw.cache=osw.cache, osw.url=osw.url, osw.network=osw.network, t.start=t.start, t.end=t.end, intermediate=TRUE)
+        
         # update sensor cache
         if(!all(is.na(ts$measurements.day.combined))) osw.cache <- ts$osw.cache
         c.ts[[p]] <- ts$measurements.day.combined

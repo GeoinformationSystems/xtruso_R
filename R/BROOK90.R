@@ -269,7 +269,7 @@ x.brook90.measurements <- function(catchment,
                                  max.radius = c(50,200,1000),
                                  max.num = 10,
                                  max.t = t.end - 60*60*24,
-                                 max.deltaH = 200,
+                                 max.deltaH = NA,
                                  intermediate = F) {
   
   #get closest stations for phenomen

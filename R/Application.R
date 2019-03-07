@@ -723,11 +723,12 @@ x.app.brook90 <- function(c.ids,
         max.deltaH <- if(p == "air temperature") 200 else NA
         
         # get measurements from OSW
-        ts <- x.brook90.measurements(catchment=catchment, c.height=c.param$height_mean, osw.stations=osw.stations, osw.phenomenon=p, osw.cache=osw.cache, osw.url=osw.url, osw.network=osw.network, t.start=t.start, t.end=t.end, intermediate=TRUE)
+        ts <- x.brook90.measurements(catchment=catchment, c.height=c.param$height_mean, osw.stations=osw.stations, osw.phenomenon=p, osw.cache=osw.cache, osw.url=osw.url, osw.network=osw.network, t.start=t.start, t.end=t.end, max.deltaH=max.deltaH, intermediate=TRUE)
         
         # update sensor cache
         if(!all(is.na(ts$measurements.day.combined))) osw.cache <- ts$osw.cache
         c.ts[[p]] <- ts$measurements.day.combined
+        
       }
       
       # get radar precipitation
@@ -737,7 +738,7 @@ x.app.brook90 <- function(c.ids,
       
       # combine meteorological measurements in a dataframe
       c.ts[["refDate"]] <-  data.frame(date = as.Date(as.Date(t.start) : as.Date(t.end), origin="1970-01-01"))
-      c.meteo <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, all.y=TRUE, suffixes=c(1,2)), c.ts)
+      c.meteo <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, all.y=TRUE), c.ts)
       
       # compute vapor pressure
       c.meteo["vapor.pressure.mean"] <- x.brook90.vaporPressure(c.meteo["air.temperature.mean"], c.meteo["relative.humidity.mean"] / 100)

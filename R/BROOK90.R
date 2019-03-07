@@ -272,6 +272,9 @@ x.brook90.measurements <- function(catchment,
                                  max.deltaH = NA,
                                  intermediate = F) {
   
+  # get phenomenon id
+  p.id <- gsub(" ", ".", osw.phenomenon)
+  
   #get closest stations for phenomen
   for(r in max.radius) {
     osw.closest <- x.osw.closest(osw.stations, osw.url, osw.phenomenon, catchment, r, max.num, max.t, c.height, max.deltaH)
@@ -279,7 +282,7 @@ x.brook90.measurements <- function(catchment,
   }
   if(length(osw.closest) == 0) {
     warning(paste("Could not find stations for", osw.phenomenon, "in", catchment$GKZ))
-    return(list(measurements.day.combined = NA))
+    return(list(measurements.day.combined = setNames(data.frame(matrix(ncol = 4, nrow = 0)), c("date", paste0(p.id, c(".mean",".max",".min"))))))
   }
   
   #set station index
@@ -308,7 +311,6 @@ x.brook90.measurements <- function(catchment,
   }
   
   #combine measurements in a dataframe
-  p.id <- gsub(" ", ".", osw.phenomenon)
   measurements.day.combined <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, suffixes=c(1,2)), measurements.day)
   
   # set inverse weights

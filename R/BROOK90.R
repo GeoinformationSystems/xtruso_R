@@ -76,7 +76,7 @@ x.brook90.plot <- function(envir,
 x.brook90.run.catchment <- function(c.param, 
                                     df.meteoFile,
                                     df.precFile,
-                                    parallel = TRUE,
+                                    parallel = FALSE,
                                     ts.results = c("swatt"),
                                     weighted.avg = TRUE) {
   

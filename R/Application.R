@@ -786,7 +786,7 @@ x.app.brook90 <- function(c.ids,
       )
       
       # run BROOK90 for catchment parameter list
-      c.soilmoist <- x.brook90.run.catchment(c.param=c.param, df.meteoFile=df.meteoFile, df.precFile=df.precFile, parallel=T, ts.results=ts.results, weighted.avg=weighted.avg, parallel=parallel)
+      c.soilmoist <- x.brook90.run.catchment(c.param=c.param, df.meteoFile=df.meteoFile, df.precFile=df.precFile, ts.results=ts.results, weighted.avg=weighted.avg, parallel=parallel)
       names(c.soilmoist)[-1] <- paste(c.id, names(c.soilmoist)[-1], sep="_")
       
       if(is.na(write.folder)) {

@@ -669,7 +669,7 @@ x.radolan.ncdf.update <- function(ncdf.file,
     
     #if null, try to get RADOLAN raster online
     if(is.null(radolan.raster))
-      radolan.raster <- x.radolan.get(radolan.configuration$dwd.root, radolan.configuration$type, timestamp = row[["timestamp"]], zipped = TRUE)
+      radolan.raster <- x.radolan.get(radolan.configuration$dwd.root, radolan.configuration$type, timestamp = row[["timestamp"]], zipped = FALSE)
     
     #write to NetCDF
     if(!is.null(radolan.raster)) {

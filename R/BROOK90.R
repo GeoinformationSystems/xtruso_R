@@ -268,7 +268,6 @@ x.brook90.measurements <- function(catchment,
                                  t.end,
                                  max.radius = c(50,200,1000),
                                  max.num = 10,
-                                 max.t = t.end - 60*60*24,
                                  max.deltaH = NA,
                                  intermediate = F) {
   
@@ -277,7 +276,7 @@ x.brook90.measurements <- function(catchment,
   
   #get closest stations for phenomen
   for(r in max.radius) {
-    osw.closest <- x.osw.closest(osw.stations, osw.url, osw.phenomenon, catchment, r, max.num, max.t, c.height, max.deltaH)
+    osw.closest <- x.osw.closest(osw.stations, osw.url, osw.phenomenon, catchment, r, max.num, t.start, t.end, c.height, max.deltaH)
     if(length(osw.closest) > 0) break
   }
   if(length(osw.closest) == 0) {

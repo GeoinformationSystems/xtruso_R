@@ -766,7 +766,7 @@ x.app.brook90 <- function(c.ids,
         year = as.numeric(format(c.meteo$date, "%Y")),
         month = as.numeric(format(c.meteo$date, "%m")),
         day = as.numeric(format(c.meteo$date, "%d")),
-        solrad = c.meteo[["global.radiation.mean"]] * 24 / 3600,
+        solrad = c.meteo[["global.radiation.mean"]] * (24 * 60 * 60) / 1000000,
         maxtemp = c.meteo[["air.temperature.max"]],
         mintemp = c.meteo[["air.temperature.min"]],
         avgVapPre = c.meteo[["vapor.pressure.mean"]],
@@ -796,6 +796,7 @@ x.app.brook90 <- function(c.ids,
       }
       
     }, error = function(err) {
+      if(!is.na(write.folder)) write.table(err, file=paste0(write.folder, "/", c.id, ".csv"), dec=".", sep=",", row.names=F)
       warning(err)
     })
   }

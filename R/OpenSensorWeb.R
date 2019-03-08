@@ -146,7 +146,8 @@ x.osw.closest <- function(osw.stations,
                           geometry,
                           max.radius = 50,
                           max.num = 10,
-                          max.t = NA,
+                          t.start, 
+                          t.end,
                           c.height,
                           max.deltaH = NA) {
   
@@ -174,16 +175,14 @@ x.osw.closest <- function(osw.stations,
     if(length(osw.stations) == 0) return(osw.stations)
   }
   
-  # select stations with latest t > max.t
-  if(!is.na(max.t)){
-    osw.stations$keep = T
-    for(i in 1:nrow(osw.stations)){
-      stats <- x.osw.stats(osw.url, osw.stations[i, ]$networkCode, osw.stations[i, ]$deviceCode, osw.stations[i, ]$sensorCode)
-      if(strptime(stats$sensor_stats$max_time, format="%Y-%m-%dT%H:%M:%SZ", tz="UTC") < max.t)
-        osw.stations@data[i, ]$keep = F
-    }
-    osw.stations <- osw.stations[osw.stations$keep == T, ]
+  # select stations with suitable timestamps
+  osw.stations$keep = T
+  for(i in 1:nrow(osw.stations)){
+    stats <- x.osw.stats(osw.url, osw.stations[i, ]$networkCode, osw.stations[i, ]$deviceCode, osw.stations[i, ]$sensorCode)
+    if(strptime(stats$sensor_stats$max_time, format="%Y-%m-%dT%H:%M:%SZ", tz="UTC") < t.start)
+      osw.stations@data[i, ]$keep = F
   }
+  osw.stations <- osw.stations[osw.stations$keep == T, ]
   
   # select max.num stations
   if(nrow(osw.stations) > max.num)

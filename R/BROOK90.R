@@ -460,6 +460,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.482, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(11.4, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(4.31, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.94, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "ClLo") {
     params$PSIF <- c(rep(-14.8, nLayer), rep(0, nLayerEmpty))
@@ -467,6 +468,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.476, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(8.52, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(7.3, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "Lo") {
     params$PSIF <- c(rep(-8.5, nLayer), rep(0, nLayerEmpty))
@@ -474,6 +476,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.451, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(5.39, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(6.3, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "LoSa") {
     params$PSIF <- c(rep(-3.8, nLayer), rep(0, nLayerEmpty))
@@ -481,6 +484,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.41, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(4.38, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(3.5, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "Sa") {
     params$PSIF <- c(rep(-7, nLayer), rep(0, nLayerEmpty))
@@ -488,6 +492,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.395, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(4.05, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(4, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "SaCl") {
     params$PSIF <- c(rep(-3.7, nLayer), rep(0, nLayerEmpty))
@@ -495,6 +500,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.426, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(10.4, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(2.9, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.93, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "SaClLo") {
     params$PSIF <- c(rep(-6.3, nLayer), rep(0, nLayerEmpty))
@@ -502,6 +508,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.42, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(7.12, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(4.21, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "SaLo") {
     params$PSIF <- c(rep(-7.9, nLayer), rep(0, nLayerEmpty))
@@ -509,6 +516,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.435, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(4.9, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(5.5, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "SiCl") {
     params$PSIF <- c(rep(-6.5, nLayer), rep(0, nLayerEmpty))
@@ -516,6 +524,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.492, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(10.4, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(4.2, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.93, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "SiClLo") {
     params$PSIF <- c(rep(-6, nLayer), rep(0, nLayerEmpty))
@@ -523,6 +532,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.477, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(7.75, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(4.9, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
     
   } else if(soiltype == "SiLo") {
     params$PSIF <- c(rep(-25, nLayer), rep(0, nLayerEmpty))
@@ -530,6 +540,7 @@ x.brook90.param.soil <- function(params = list(),
     params$THSAT <- c(rep(.485, nLayer), rep(0, nLayerEmpty))
     params$BEXP <- c(rep(5.3, nLayer), rep(0, nLayerEmpty))
     params$KF <- c(rep(13.1, nLayer), rep(0, nLayerEmpty))
+    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
   }
   
   return(params)

@@ -672,7 +672,7 @@ x.app.station.dc <- function(s.id,
 x.app.brook90 <- function(c.ids,
                           ts.results = c("swatt"),
                           t.end = Sys.time(),
-                          t.years = 6,
+                          t.years = 3,
                           weighted.avg = TRUE,
                           write.folder = NA,
                           ncdf.folder = "/ncdf",
@@ -705,17 +705,17 @@ x.app.brook90 <- function(c.ids,
       
       c.ts <- list()
       
-      # check parameter list (warn and remove, if other > 25%, stop, if other > 50%)
+      # check parameter list for other soil or clc (warn, if > 25%, stop, if > 50%)
       area <- sum(c.param$characteristics$area_sqkm)
-      soil.other <- sum(c.param$characteristics[c.param$characteristics$Sl_USDA %in% c(" ", "Other"), "area_sqkm"])
-      if(soil.other > .5*area) stop("Soil type 'Other' is > 50% of area")
-      if(soil.other > .25*area) warning("Soil type 'Other is' 25%-50% of area")
-      lcover.other <- sum(c.param$characteristics[c.param$characteristics$lcover %in% c("Others"), "area_sqkm"])
-      if(lcover.other > .5*area) stop("Land cover 'Other' is > 50% of area")
-      if(lcover.other > .25*area) warning("Land cover 'Other' is 25%-50% of area")
+      area.soil.noinfo <- sum(c.param$characteristics$area_sqkm[c.param$soil_noinfo])
+      if(area.soil.noinfo > .5*area) stop("Soil type 'Other' is > 50% of area")
+      if(area.soil.noinfo > .25*area) warning("Soil type 'Other is' 25%-50% of area")
+      area.clc.other <- sum(c.param$characteristics$area_sqkm[c.param$clc_other])
+      if(area.clc.other > .5*area) stop("Land cover 'Other' is > 50% of area")
+      if(area.clc.other > .25*area) warning("Land cover 'Other' is 25%-50% of area")
       
-      # remove classes with Other
-      c.param$characteristics <- c.param$characteristics[!c.param$characteristics$Sl_USDA %in% c(" ", "Other") & c.param$characteristics$lcover != "Others", ]
+      # remove combinations with other soil or clc
+      c.param$characteristics <- c.param$characteristics[!(c.param$soil_noinfo | c.param$clc_other), ]
       
       # get OSW station measurements from OSW
       for(p in osw.params) {
@@ -746,6 +746,7 @@ x.app.brook90 <- function(c.ids,
       
       # set NA to BROOK90 default
       c.meteo[is.na(c.meteo[, "wind.speed.mean"]), "wind.speed.mean"] <- 0.1
+      c.meteo[c.meteo[, "wind.speed.mean"] == 0, "wind.speed.mean"] <- 0.1
       c.meteo[is.na(c.meteo[, "global.radiation.mean"]), "global.radiation.mean"] <- 0
       c.meteo[is.na(c.meteo[, "vapor.pressure.mean"]), "vapor.pressure.mean"] <- 0
       c.meteo[is.na(c.meteo[, "precipitation"]), "precipitation"] <- 0 # not ideal, but avoids NA

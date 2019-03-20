@@ -106,11 +106,12 @@ x.brook90.run.catchment <- function(c.param,
       
       # execute model
       df <- data.frame(x = x.brook90.run.catchment.sub(params=params, 
-                                                   c.param=c.param$characteristics[i, ], 
-                                                   flow="topdown",
-                                                   df.meteoFile=df.meteoFile, 
-                                                   df.precFile=df.precFile,
-                                                   ts.results=ts.results))
+                                                       clc=c.param$characteristics[i, ]$CLC_Class,
+                                                       bk50=c.param$characteristics[i, ]$BK50_Legende,
+                                                       flow="topdown",
+                                                       df.meteoFile=df.meteoFile, 
+                                                       df.precFile=df.precFile,
+                                                       ts.results=ts.results))
       names(df) <- paste0(ts.results,i)
       
       # return soil moisture ts
@@ -129,7 +130,8 @@ x.brook90.run.catchment <- function(c.param,
       
       # execute model
       ts <- x.brook90.run.catchment.sub(params=params, 
-                                        c.param=c.param$characteristics[i, ], 
+                                        clc=c.param$characteristics[i, ]$CLC_Class,
+                                        bk50=c.param$characteristics[i, ]$BK50_Legende,
                                         flow="topdown",
                                         df.meteoFile=df.meteoFile, 
                                         df.precFile=df.precFile,
@@ -162,15 +164,16 @@ x.brook90.run.catchment <- function(c.param,
 #' @return soil moisture timeseries
 #' 
 x.brook90.run.catchment.sub <- function(params=params,
-                                        c.param,
+                                        clc,
+                                        bk50,
                                         flow,
                                         df.meteoFile,
                                         df.precFile,
                                         ts.results = c("swatt")) {
   
   # init model environment
-  params <- x.brook90.param.landcover(params=params, lcover=c.param$lcover)
-  params <- x.brook90.param.soil(params=params, soiltype=c.param$Sl_USDA, thickness=c.param$mae*1000, stonef=c.param$sk/100, nLayer=10)
+  params <- x.brook90.param.landcover(params=params, lcover=clc)
+  params <- x.brook90.param.soil(params=params, soiltype=bk50)
   params <- x.brook90.param.flow(params=params, flow=flow)
   envir <- x.brook90.getEnvironment(params=params)
   
@@ -220,9 +223,19 @@ x.brook90.params <- function(catchment) {
   df.stats <- df.stats[df.stats$GKZ == catchment$GKZ, ]
   params[["characteristics"]] <- df.stats
   
-  #check area sum to warn for non-fully-covered catchment
+  # check for stats
+  if(nrow(df.stats) == 0)
+    stop(paste0("No catchment stats available for GKZ ", catchment$GKZ))
+  
+  # check area sum to warn for non-fully-covered catchment
   if(abs(catchment$Area_sqkm - sum(df.stats$area_sqkm)) > 0.1)
     warning(paste("catchment area for", catchment$GKZ, "is not fully covered"))
+  
+  # get lcover with "Others"
+  params[["clc_other"]] <- df.stats$CLC_Class %in% c("Others")
+    
+  # get soil with no info
+  params[["soil_noinfo"]] <- !(df.stats$BK50_Legende %in% xtruso::xtruso.catchments.soil.b90$Legende)
   
   # get height stats
   dgm.stats <- xtruso::xtruso.catchments.stat.dgm
@@ -345,7 +358,7 @@ x.brook90.measurements <- function(catchment,
 #' @return updated parameter list
 #' 
 x.brook90.param.landcover <- function(params = list(),
-                                    lcover) {
+                                      lcover) {
   
   if(missing(lcover))
     stop("Missing landcover information.")
@@ -436,111 +449,41 @@ x.brook90.param.landcover <- function(params = list(),
 #' @return updated parameter list
 #' 
 x.brook90.param.soil <- function(params = list(),
-                               soiltype,
-                               thickness = 1000,
-                               stonef = 0,
-                               nLayer = 10) {
+                                 soiltype,
+                                 nLayer = 25) {
  
   if(missing(soiltype))
     stop("Missing soil information.")
   
-  if(!(soiltype %in% c("Cl", "ClLo", "Lo", "LoSa", "SaCl", "Sa", "SaClLo", "SaLo", "SiClLo", "SiLo")))
-    stop(paste("unrecognized soil type:", soiltype, "(must be \"Cl\", \"ClLo\", \"Lo\", \"LoSa\", \"Sa\", \"SaClLo\", \"SaLo\", \"SiClLo\" or \"SiLo\")"))
+  if(!(soiltype %in% xtruso::xtruso.catchments.soil.b90$Legende))
+    stop(paste("unrecognized soil type:", soiltype, "(must correspond to BK50 legend number 1 to 1150)"))
   
-  # set default layer tickness and stonefraction
-  nLayerEmpty <- 25 - nLayer
-  params$NLAYER <- nLayer
-  params$THICK <- c(rep(as.numeric(thickness) / nLayer, nLayer), rep(0, nLayerEmpty))
-  params$STONEF <- c(rep(as.numeric(stonef), nLayer), rep(0, nLayerEmpty))
+  # get soiltype specification
+  soil <- xtruso::xtruso.catchments.soil.b90[xtruso::xtruso.catchments.soil.b90$Legende == soiltype, ]
   
-  # set soil parameters
-  if(soiltype == "Cl") {
-    params$PSIF <- c(rep(-7.7, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.425, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.482, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(11.4, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(4.31, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.94, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "ClLo") {
-    params$PSIF <- c(rep(-14.8, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.402, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.476, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(8.52, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(7.3, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "Lo") {
-    params$PSIF <- c(rep(-8.5, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.324, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.451, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(5.39, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(6.3, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "LoSa") {
-    params$PSIF <- c(rep(-3.8, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.203, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.41, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(4.38, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(3.5, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "Sa") {
-    params$PSIF <- c(rep(-7, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.188, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.395, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(4.05, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(4, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "SaCl") {
-    params$PSIF <- c(rep(-3.7, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.358, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.426, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(10.4, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(2.9, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.93, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "SaClLo") {
-    params$PSIF <- c(rep(-6.3, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.317, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.42, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(7.12, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(4.21, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "SaLo") {
-    params$PSIF <- c(rep(-7.9, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.266, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.435, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(4.9, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(5.5, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "SiCl") {
-    params$PSIF <- c(rep(-6.5, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.433, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.492, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(10.4, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(4.2, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.93, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "SiClLo") {
-    params$PSIF <- c(rep(-6, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.397, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.477, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(7.75, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(4.9, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
-    
-  } else if(soiltype == "SiLo") {
-    params$PSIF <- c(rep(-25, nLayer), rep(0, nLayerEmpty))
-    params$THETAF <- c(rep(.365, nLayer), rep(0, nLayerEmpty))
-    params$THSAT <- c(rep(.485, nLayer), rep(0, nLayerEmpty))
-    params$BEXP <- c(rep(5.3, nLayer), rep(0, nLayerEmpty))
-    params$KF <- c(rep(13.1, nLayer), rep(0, nLayerEmpty))
-    params$WETINF <- c(rep(.92, nLayer), rep(0, nLayerEmpty))
+  # set number of layers
+  params$NLAYER <- nrow(soil)
+  
+  # init layer parameters
+  params$THICK <- rep(0, nLayer)
+  params$STONEF <- rep(0, nLayer)
+  params$PSIF <- rep(0, nLayer)
+  params$THETAF <- rep(0, nLayer)
+  params$THSAT <- rep(0, nLayer)
+  params$BEXP <- rep(0, nLayer)
+  params$KF <- rep(0, nLayer)
+  params$WETINF <- rep(0, nLayer)
+  
+  # set specified parameters for each layer
+  for(layer.nr in soil$layer.Nr){
+    params$THICK[layer.nr] <- soil[soil$layer.Nr == layer.nr, "THICK"]
+    params$STONEF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "STONEF"]
+    params$PSIF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "PSIF"]
+    params$THETAF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "THETAF"]
+    params$THSAT[layer.nr] <- soil[soil$layer.Nr == layer.nr, "THSAT"]
+    params$BEXP[layer.nr] <- soil[soil$layer.Nr == layer.nr, "BEXP"]
+    params$KF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "KF"]
+    params$WETINF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "WETINF"]
   }
   
   return(params)

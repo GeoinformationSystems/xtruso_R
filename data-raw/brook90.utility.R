@@ -2810,19 +2810,26 @@ MSBDAYNIGHT<-function(){
 
 swchek<-function(i){
   #test for SWATI(I%) < 0 or > SWATMX(I%)
-  
-  if (SWATI[i] <= 0) {
-    
-    if(swatproblem >0){}
-  }else if (SWATI[i] > SWATMX[i]){
-    
-    if (SWATI[i] > SWATMX[i] + 0.00001) {
-      if(swatproblem >0){}
-    }else{
-      ##     rounding error only
-      SWATI[i] <<- SWATMX[i]
-    }
+  if(SWATI[i] <= 0)
+    stop(paste0("Serious problem! Run stopped. Negative soil water of ", SWATI[i], " for layer ", i, ", iteration ", NITS, ", year ", YEARN, ", month ", MONTHN, ", day ", DOM, ", preint ", N, ". Error in layer 1 may be caused by too high SLVP for THICK(1). Examine output and parameters to try to determine other causes."))
+  if(SWATI[i] > SWATMX[i]) {
+    if(SWATI[i] > SWATMX[i] + 0.00001)
+      stop(paste0("Serious problem. Run stopped. Supersaturated soil water of ", SWATI[i], " for layer ", i, ", iteration ", NITS, ", year ", YEARN, ", month ", MONTHN, ", day ", DOM, ", preint ", N, ". Examine output and parameters to try to determine the cause."))
+    SWATI[i] <<- SWATMX[i]
   }
+  
+  #if (SWATI[i] <= 0) {
+  #  
+  #  if(swatproblem >0){}
+  #}else if (SWATI[i] > SWATMX[i]){
+  #  
+  #  if (SWATI[i] > SWATMX[i] + 0.00001) {
+  #    if(swatproblem >0){}
+  #  }else{
+  #    ##     rounding error only
+  #    SWATI[i] <<- SWATMX[i]
+  #  }
+  #}
 }
 
 #********************************************************************************

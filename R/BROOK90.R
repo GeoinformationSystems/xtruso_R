@@ -460,9 +460,18 @@ x.brook90.param.soil <- function(params = list(),
   
   # get soiltype specification
   soil <- xtruso::xtruso.catchments.soil.b90[xtruso::xtruso.catchments.soil.b90$Legende == soiltype, ]
+  nlayer <- nrow(soil)
+  
+  # split single-layered soiltypes
+  if(nlayer == 1){
+    soil[2, ] <- soil[1, ]
+    soil$THICK <- soil$THICK / 2
+    soil[2, "layer.Nr"] <- 2
+    nlayer <- 2
+  }
   
   # set number of layers
-  params$NLAYER <- nrow(soil)
+  params$NLAYER <- nlayer
   
   # init layer parameters
   params$THICK <- rep(0, nLayer)
@@ -476,7 +485,7 @@ x.brook90.param.soil <- function(params = list(),
   
   # set specified parameters for each layer
   for(layer.nr in soil$layer.Nr){
-    params$THICK[layer.nr] <- soil[soil$layer.Nr == layer.nr, "THICK"]
+    params$THICK[layer.nr] <- soil[soil$layer.Nr == layer.nr, "THICK"] * 1000
     params$STONEF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "STONEF"]
     params$PSIF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "PSIF"]
     params$THETAF[layer.nr] <- soil[soil$layer.Nr == layer.nr, "THETAF"]

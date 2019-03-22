@@ -456,7 +456,7 @@ x.brook90.param.soil <- function(params = list(),
     stop("Missing soil information.")
   
   if(!(soiltype %in% xtruso::xtruso.catchments.soil.b90$Legende))
-    stop(paste("unrecognized soil type:", soiltype, "(must correspond to BK50 legend number 1 to 1150)"))
+    stop(paste("unrecognized soil legend:", soiltype))
   
   # get soiltype specification
   soil <- xtruso::xtruso.catchments.soil.b90[xtruso::xtruso.catchments.soil.b90$Legende == soiltype, ]

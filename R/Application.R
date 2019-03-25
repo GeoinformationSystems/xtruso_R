@@ -797,7 +797,7 @@ x.app.brook90 <- function(c.ids,
       }
       
     }, error = function(err) {
-      if(!is.na(write.folder)) write.table(err, file=paste0(write.folder, "/", c.id, ".csv"), dec=".", sep=",", row.names=F)
+      if(!is.na(write.folder)) write(err$message, file=paste0(write.folder, "/", c.id, ".csv"))
       warning(err)
     })
   }

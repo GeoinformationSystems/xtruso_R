@@ -323,7 +323,7 @@ x.brook90.measurements <- function(catchment,
   }
   
   #combine measurements in a dataframe
-  measurements.day.combined <- Reduce(function(df1, df2) merge(df1, df2, by="date", all.x=TRUE, suffixes=c(1,2)), measurements.day)
+  measurements.day.combined <- Reduce(function(df1, df2) merge(df1, df2, by="date", all=TRUE, suffixes=c(1,2)), measurements.day)
   
   # set inverse weights
   weights.inv <- 1 / dist ^ 2

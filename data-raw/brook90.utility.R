@@ -585,7 +585,7 @@ TBYLAYER<-function(J, PTR, DISPC, ALPHA, KK, RROOTI, RXYLEM, PSITI, NLAYER, PSIC
       #     all layers flagged, no transpiration
       ATr <- 0
       PSIT <- -10000000000#
-      return(c(ATr,ATRANi))
+      return(list(ATr,ATRANi))
     }else{
       RT <- 1 / SUM
     }
@@ -644,7 +644,7 @@ TBYLAYER<-function(J, PTR, DISPC, ALPHA, KK, RROOTI, RXYLEM, PSITI, NLAYER, PSIC
       #     repeat main loop with flagged layers excluded
     }else{
       #     done
-      return(c(ATr,ATRANi))
+      return(list(ATr,ATRANi))
     }
     # 
   }
@@ -2779,11 +2779,11 @@ MSBDAYNIGHT<-function(){
     #  actual transpiration and ground evaporation rates
     if (PTR[JJJ] > 0.001) {
       rbl <- TBYLAYER(JJJ, PTR[JJJ], DISPC, ALPHA, KK, RROOTI, RXYLEM, PSITI, NLAYER, PSICR, NOOUTF)
-      ATR[JJJ] <<- rbl[1]
-      ATRANI <<- rbl[1:ML+1]
+      #ATR[JJJ] <<- rbl[1]
+      #ATRANI <<- rbl[1:ML+1]
       #PSIT<<-unlist(tbl[1])
-      #ATR[J]<<-unlist(tbl[2])
-      #ATRANI<<-unlist(tbl[3])###                                                                                                        ^^^^^^^  ^^^^^^^^
+      ATR[JJJ]<<-unlist(rbl[2])
+      ATRANI<<-unlist(rbl[3])###                                                                                                        ^^^^^^^  ^^^^^^^^
       for (iiii in 1:NLAYER){
         ATRI[JJJ,iiii] <<- ATRANI[iiii]
       }

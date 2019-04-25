@@ -51,6 +51,13 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
   if(!"POSIXct" %in% class(t.end))
     t.end <- as.POSIXct(t.end, format=t.format, tz=t.zone)
   
+  if(radolan.type == "YW") 
+    return(x.app.radolan.timeseries.yw(ncdf.folder = ncdf.folder,
+                                       t.start = t.start,
+                                       t.end = t.end,
+                                       extent = extent,
+                                       statistics = statistics))
+  
   #get target year(s)
   years <- format(t.start, "%Y") : format(t.end, "%Y")
   
@@ -75,11 +82,81 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
     if(!file.exists(ncdf.files[[as.character(year)]]))
       next
     
-    #determine, if full year needs to be requested
-    full.year <- if(year == min(years) || year == max(years)) FALSE else TRUE
-    
     #open NetCDF file
     ncdf <- x.ncdf.open(ncdf.files[[as.character(year)]])
+    
+    #get timeseries from NetCDF
+    subset <- x.ncdf.subset(ncdf, extent=extent, timestamp=timestamp, statistics=statistics)
+    
+    #get timeseries from NetCDF
+    if(first){
+      #initialize timeseries
+      timeseries <- subset
+      first <- F
+    } else {
+      #combine timeseries
+      if(statistics) timeseries <- rbind(timeseries, subset)
+      else timeseries <- abind(timeseries, subset, along=3) 
+    }
+    
+    #close NetCDF file
+    x.ncdf.close(ncdf)
+    
+  }
+  
+  #return final dataframe, calculates mean for each timestamp
+  return(timeseries)
+  
+}
+
+
+#' Read timeseries from RADOLAN YW NetCDF file
+#'
+#' @param ncdf.folder folder with NetCDF files (files must follow naming convention radolan%%radolan.type%%-%%year%%)
+#' @param t.start start date
+#' @param t.end end date
+#' @param extent extent or polygon for which statistics are calculated; if -1, statistics are calculated for the whole extent
+#' @param statistics flag: request statistics for extent
+#' @return timeseries for requested RADOLAN product, coordinate and timeframe
+#' @export
+#' 
+x.app.radolan.timeseries.yw <- function(ncdf.folder = "/ncdf",
+                                        t.start,
+                                        t.end,
+                                        extent = -1,
+                                        statistics = T) {
+  
+  #get temporal extent
+  years <- format(t.start, "%Y") : format(t.end, "%Y")
+  months <- as.numeric(c(format(t.start, "%m"), format(t.end, "%m")))
+  month.all <- c(paste0("0",1:9), 10:12)
+  
+  #set timestamp to numeric (as stored in NetCDF)
+  timestamp <- as.double(c(t.start, t.end))
+  
+  #set NetCDF file(s)
+  ncdf.files = list()
+  for(year in years){
+    m.start <- if(year == min(years)) months[1] else 1
+    m.end <- if(year == max(years)) months[2] else 12
+    m.request <- month.all[m.start:m.end]
+    ncdf.files[paste0(year, m.request)] <- paste0(ncdf.folder, "/radolanYW-", year, m.request, ".nc")
+  }
+  
+  #flag: first iteration
+  first <- T
+  
+  #result object
+  timeseries <- NULL
+  
+  for(ncdf.file in names(ncdf.files)){
+    
+    #next, if file does not exist
+    if(!file.exists(ncdf.files[[ncdf.file]]))
+      next
+    
+    #open NetCDF file
+    ncdf <- x.ncdf.open(ncdf.files[[ncdf.file]])
     
     #get timeseries from NetCDF
     subset <- x.ncdf.subset(ncdf, extent=extent, timestamp=timestamp, statistics=statistics)

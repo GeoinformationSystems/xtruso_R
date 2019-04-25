@@ -2782,8 +2782,8 @@ MSBDAYNIGHT<-function(){
       #ATR[JJJ] <<- rbl[1]
       #ATRANI <<- rbl[1:ML+1]
       #PSIT<<-unlist(tbl[1])
-      ATR[JJJ]<<-unlist(rbl[2])
-      ATRANI<<-unlist(rbl[3])###                                                                                                        ^^^^^^^  ^^^^^^^^
+      ATR[JJJ]<<-unlist(rbl[1])
+      ATRANI<<-unlist(rbl[2])###                                                                                                        ^^^^^^^  ^^^^^^^^
       for (iiii in 1:NLAYER){
         ATRI[JJJ,iiii] <<- ATRANI[iiii]
       }

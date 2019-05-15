@@ -43,7 +43,7 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
                               ncdf.folder = "/ncdf",
                               gauge,
                               leadtime = 6,
-                              len.discharge = 6,
+                              len.discharge = 36,
                               len.precipitation = 14,
                               tz = "UTC") {
   
@@ -64,9 +64,6 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   
   #get discharge
   osw.discharge <- x.osw.get(osw.url, osw.network, osw.device, osw.sensor, t.start = fcpoint - (3600 * len.discharge - 1) , t.end=fcpoint)
-  
-  #check number of obervations
-  if(nrow(osw.discharge) < len.discharge) stop("Insufficient number of recent observations available.")
   
   #calculate hourly discharge mean
   osw.discharge$begin <- apply(osw.discharge[, "begin"], 1, function(t){

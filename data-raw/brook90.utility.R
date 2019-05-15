@@ -3362,7 +3362,7 @@ execute <- function(){
     YEARN = as.numeric(MData[[1]][IDAY])
     #NPINT =1
     if(IDAY <= NDAYS)
-      DOY=DOYF(DOM,MONTHN,DAYMO)
+      DOY <<- DOYF(DOM,MONTHN,DAYMO)
     
     #* * * I N P U T   W E A T H E R   L I N E   F R O M   D F I L E * * *
     #subdatafileline()

@@ -128,23 +128,30 @@ x.brook90.run.catchment <- function(c.param,
     #extract values for each polygon
     for(i in 1:nrow(c.param$characteristics)) {
       
-      # execute model
-      ts <- x.brook90.run.catchment.sub(params=params, 
-                                        clc=c.param$characteristics[i, ]$CLC_Class,
-                                        bk50=c.param$characteristics[i, ]$BK50_Legende,
-                                        flow="topdown",
-                                        df.meteoFile=df.meteoFile, 
-                                        df.precFile=df.precFile,
-                                        ts.results=ts.results)
-      
-      # append result for timestamp
-      soilmoist[paste0(ts.results,i)] <- ts
-      
+        # execute model
+        soilmoist[paste0(ts.results, i)] <- tryCatch ({
+          
+          x.brook90.run.catchment.sub(params=params, 
+                                      clc=c.param$characteristics[i, ]$CLC_Class,
+                                      bk50=c.param$characteristics[i, ]$BK50_Legende,
+                                      flow="topdown",
+                                      df.meteoFile=df.meteoFile, 
+                                      df.precFile=df.precFile,
+                                      ts.results=ts.results)
+        }, error = function(err) {
+          warning(err)
+          return(NA)
+        })
     }
   }
   
-  # get weighted average based on total area
+  if((ncol(soilmoist) - 1) < 0.5 * nrow(c.param$characteristics))
+    stop("Too many unresolved errors in sub-catchment computation.")
+  
+  # get weights for subcatchments
   weights <- c.param$characteristics$area_sqkm / sum(c.param$characteristics$area_sqkm)
+  
+  # get weighted average based on total area
   for(ts.result in ts.results){
     soilmoist[paste0(ts.result,"_avg")] <- apply(soilmoist[grep(ts.result, names(soilmoist))], 1, FUN = function(x) { sum(x * weights) })
   }

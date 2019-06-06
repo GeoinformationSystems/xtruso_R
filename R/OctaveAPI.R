@@ -33,6 +33,7 @@ x.octave.execute <- function(octave.url,
 #' @param octave.url Octave API endpoint
 #' @param octave.process proces id
 #' @param gauge requested station id
+#' @param fcpoint timestamp at which the forecast starts (ISO8601 String)
 #' @param leadtime forecasted timeframe (in hours)
 #' @param len.discharge length of discharge measurements (in hours)
 #' @param len.precipitation length of precipitation measurements (in days)
@@ -42,6 +43,7 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
                               octave.process = "flood_nn",
                               ncdf.folder = "/ncdf",
                               gauge,
+                              fcpoint,
                               leadtime = 6,
                               len.discharge = 36,
                               len.precipitation = 14,
@@ -53,7 +55,9 @@ x.octave.flood_nn <- function(octave.url = "http://172.22.1.142/octave",
   octave.params[["leadtime"]] <- leadtime
   
   #get current hour (fcpoint)
-  fcpoint <- as.POSIXct(format(Sys.time(), "%Y-%m-%d %H:00:00"))
+  if(missing(fcpoint)) fcpoint <- Sys.time() else fcpoint <- as.POSIXct(fcpoint, tz=tz)
+    
+  fcpoint <- as.POSIXct(format(fcpoint, "%Y-%m-%d %H:00:00"), tz=tz)
   octave.params[["fcpoint"]] <- as.character(fcpoint, tz=tz)
   
   #set OSW parameters

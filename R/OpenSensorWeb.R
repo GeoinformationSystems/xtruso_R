@@ -54,7 +54,8 @@ x.osw.request <- function(osw.url,
     request <- paste0(request,
                       "/measurements/raw",
                       "?start=", strftime(t.start , "%Y-%m-%dT%H:%M:%SZ", tz="UTC"),
-                      "&end=", strftime(t.end , "%Y-%m-%dT%H:%M:%SZ", tz="UTC"))
+                      "&end=", strftime(t.end , "%Y-%m-%dT%H:%M:%SZ", tz="UTC"),
+                      "&includeLatest=true")
   
   return(request)
   

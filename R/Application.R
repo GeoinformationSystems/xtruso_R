@@ -104,6 +104,9 @@ x.app.radolan.timeseries <- function(ncdf.folder = "/ncdf",
     
   }
   
+  #check for NULL
+  if(is.null(timeseries)) stop(paste0("Could not read any RADOLAN values"))
+  
   #return final dataframe, calculates mean for each timestamp
   return(timeseries)
   

@@ -82,40 +82,39 @@ x.osw.stations <- function(osw.url,
     stop("Must specify network code or phenomenon for OSW request")
   
   #set terms
-  terms = ''
-  if(!missing(osw.network)) terms <- paste0('{"terms": {"networkCode":["', paste0(osw.network, collapse="\",\""),'"]}}')
-  if(!missing(phenomenon)) terms <- paste0(if(terms == '') '' else paste0(terms, ','), '{"terms": {"phenomenon":["', paste0(phenomenon, collapse="\",\""),'"]}}')
+  networksQuery = ''
+  phenomenonQuery = ''
+  if(!missing(osw.network)) networksQuery <- paste0('"networks":["', paste0(osw.network, collapse="\",\""),'"],')
+  if(!missing(phenomenon)) phenomenonQuery <- paste0('"topic_phenomenons" : [{"topic": "Air and Atmosphere", "phenomenons":["', paste0(phenomenon, collapse="\",\""),'"]}],')
   
   #build request
   request <- paste0('{',
-    '"size" : 10000,',
-    '"query" : { "bool" : { "must" : { "match_all" : {} },',
-      '"filter" : [',
-          '{ "bool": { "must" : [', terms, '] } },',
-          '[{',
-            '"geo_bounding_box":{',
-              '"geometry" : {',
+    '"aggregation" : "NONE",',
+    '"fields":["device_code","network_code","phenomenon","sensor_code","geometry", "uom"],',
+      '"filters" : {',
+            phenomenonQuery,
+            networksQuery,
+            '"geo_bbox":{',
                 '"top_left" : {"lon":', extent[1], ', "lat":', extent[4], '},',
                 '"bottom_right" : {"lon":', extent[3], ', "lat":', extent[2], '}',
-               '}',
             '}',
-          '}]',
-      ']',
-    '}}}')
+      '}',
+    '}')
   
   #request stations
   response <- httr::POST(osw.url, httr::accept("application/json"), httr::content_type("application/json"), body=request)
   content <- httr::content(response)
-  hits <- content$hits$hits
+  hits <- content
   
   #parse response
   osw.stations <- do.call(rbind, lapply(1:length(hits), function(x){
-    source <- hits[[x]][["_source"]]
+    source <- hits[[x]]
+    
     sp::SpatialPointsDataFrame(coords = source$geometry,
                                data = data.frame(
-                                 sensorCode = source$sensorCode, 
-                                 networkCode = source$networkCode, 
-                                 deviceCode = source$deviceCode, 
+                                 sensorCode = source$sensor_code, 
+                                 networkCode = source$network_code, 
+                                 deviceCode = source$device_code, 
                                  phenomenon = source$phenomenon, 
                                  uom = source$uom,
                                  stringsAsFactors = F),
